@@ -70,7 +70,7 @@ npm run dev        # run the app with hot reload
 npm test           # unit tests (Vitest)
 npm run typecheck  # tsc for main/preload + vue-tsc for the renderer
 npm run lint
-npm run build:win  # package the installer (also :mac and :linux)
+npm run build:win  # package the Windows installer
 ```
 
 Project layout:
@@ -83,6 +83,15 @@ src/preload/              contextBridge API for the settings window
 src/renderer/             Vue 3 + PrimeVue settings UI
 resources/overlay/        The overlay pages served to OBS
 ```
+
+### Releases
+
+Releases are built manually. To publish a new version:
+
+1. Bump the version: `npm version patch` (or `minor` / `major`), then `git push --follow-tags`.
+2. In GitHub: **Actions → Build → Run workflow** (keep the `release` checkbox on).
+
+The workflow builds the Windows installer on a Windows runner and creates a GitHub Release tagged `v<version>` with the installer attached. Uncheck `release` to only produce a build artifact without publishing.
 
 ### Privacy
 
@@ -166,7 +175,7 @@ npm run dev        # запуск приложения с горячей пер�
 npm test           # юнит-тесты (Vitest)
 npm run typecheck  # tsc для main/preload + vue-tsc для рендерера
 npm run lint
-npm run build:win  # сборка установщика (также :mac и :linux)
+npm run build:win  # сборка установщика для Windows
 ```
 
 Структура:
@@ -179,6 +188,15 @@ src/preload/              contextBridge-API для окна настроек
 src/renderer/             Настройки на Vue 3 + PrimeVue
 resources/overlay/        Страницы оверлея, отдаваемые в OBS
 ```
+
+### Релизы
+
+Релизы собираются вручную. Чтобы выпустить новую версию:
+
+1. Поднимите версию: `npm version patch` (или `minor` / `major`), затем `git push --follow-tags`.
+2. В GitHub: **Actions → Build → Run workflow** (галочка `release` включена).
+
+Workflow соберёт установщик для Windows на Windows-раннере и создаст GitHub Release с тегом `v<версия>` и прикреплённым установщиком. Снимите галочку `release`, чтобы просто получить артефакт сборки без публикации.
 
 ### Приватность
 
