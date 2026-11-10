@@ -2,6 +2,11 @@ name: Build
 
 on:
   workflow_dispatch:
+    inputs:
+      release:
+        description: 'Create a GitHub Release with the built installer'
+        type: boolean
+        default: true
 
 jobs:
   lint-and-test:
@@ -54,3 +59,30 @@ jobs:
           name: HuntTracker-Windows
           path: dist/*.exe
           retention-days: 7
+
+  release:
+    needs: build-windows
+    if: ${{ inputs.release }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: HuntTracker-Windows
+          path: dist
+
+      - name: Read version
+        id: version
+        run: echo "tag=v$(node -p 'require("./package.json").version')" >> "$GITHUB_OUTPUT"
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
+          files: dist/*.exe
+          generate_release_notes: true
