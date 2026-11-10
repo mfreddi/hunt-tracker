@@ -634,7 +634,7 @@ describe('settings and persistence', () => {
     expect(s.activeMode).toBe('')
     expect(s.gamePath).toBe('C:/Steam/Hunt/USER/Game.log')
     expect(s.eventsPath).toBe('C:/Users/x/AppData/Local/NVIDIA Corporation/GfeSDK')
-    expect(s.latencyMode).toBe('fast')
+    expect(s.latencyMode).toBe('normal')
     expect(s.look.position).toBe('top')
     expect(s.look.scale).toBe(1.4)
     expect(s.look.bgOpacity).toBe(1) // no field in old stores: the panel stays opaque
@@ -682,9 +682,9 @@ describe('settings and persistence', () => {
     expect(t.get().latencyMode).toBe('normal')
   })
 
-  it('a store saved with the removed instant mode loads as fast', () => {
+  it('a store saved with the removed instant mode loads as normal', () => {
     const { tracker: t } = make({ enabled: false, latencyMode: 'instant' }, { value: null })
-    expect(t.get().latencyMode).toBe('fast')
+    expect(t.get().latencyMode).toBe('normal')
   })
 
   it('broadcasts the state on changes and saves it on dispose', () => {

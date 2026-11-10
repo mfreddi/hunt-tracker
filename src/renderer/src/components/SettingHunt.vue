@@ -68,8 +68,8 @@ const gapOptions = [
 ]
 
 const latencyOptions = [
-  { value: 'fast', label: 'Быстро - 300 мс (рекомендуется)' },
-  { value: 'normal', label: 'Обычная - 3,5 с, находит размены' }
+  { value: 'normal', label: 'Обычная - 3,5 с, находит размены (рекомендуется)' },
+  { value: 'fast', label: 'Быстро - 300 мс, возможны ложные срабатывания' }
 ]
 
 const sdkFailed = computed(() => s.value?.sdk?.state === 'failed')
@@ -146,7 +146,7 @@ const sdkState = computed(() => logState('events', !!s.value?.eventsPath))
       <label class="hunt-field">
         <span>Скорость учёта убийств</span>
         <Select
-          :model-value="s.latencyMode || 'fast'"
+          :model-value="s.latencyMode || 'normal'"
           :options="latencyOptions"
           option-label="label"
           option-value="value"
@@ -154,9 +154,10 @@ const sdkState = computed(() => logState('events', !!s.value?.eventsPath))
         />
       </label>
       <p class="hunt-hint">
-        Убийство и смерть сначала выглядят одинаково, отличить их можно только по данным игры. В
-        быстрых режимах, если подтверждение смерти запоздает, смерть может засчитаться как убийство.
-        Размены (убийство и смерть почти одновременно) ищет только обычный режим.
+        Убийство и смерть сначала выглядят одинаково, отличить их можно только по данным игры.
+        Обычная скорость надёжнее и находит размены, поэтому рекомендуется. В быстром режиме, если
+        подтверждение смерти запоздает, смерть может засчитаться как убийство — бывают ложные
+        срабатывания.
       </p>
       <label class="hunt-field">
         <span>Путь к данным игры (game.log)</span>

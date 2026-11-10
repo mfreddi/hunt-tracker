@@ -189,8 +189,8 @@ function normalize(raw: any, now = Date.now()): HuntPersisted {
     gamePath: pickPath(r.gamePath, r.gameLogPath),
     eventsPath: pickPath(r.eventsPath, r.nvidiaLogsPath),
     enabled: bool(r.enabled, false),
-    // 'instant' was removed: a store that still has it loads as fast.
-    latencyMode: ['normal', 'fast'].includes(r.latencyMode) ? r.latencyMode : 'fast',
+    // 'instant' was removed: a store that still has it loads as normal.
+    latencyMode: ['normal', 'fast'].includes(r.latencyMode) ? r.latencyMode : 'normal',
     look: normalizeLook(r.look),
     // Older stores: the fixed 3 h break it always was.
     sessionGapHours: SESSION_GAPS.includes(r.sessionGapHours) ? r.sessionGapHours : 3,

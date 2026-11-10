@@ -5,9 +5,10 @@ export type HuntTheme = 'classic' | 'slate' | 'wood' | 'blood'
 export const HUNT_THEMES: HuntTheme[] = ['classic', 'slate', 'wood', 'blood']
 export const PRO_THEMES: HuntTheme[] = ['slate', 'wood', 'blood']
 
-// normal: 3s classification wait + 500ms trade window (trades detected, slowest).
-// fast: 300ms wait, no trades. The reference also has "instant" (no wait at all, late
-// death records show up as false kills) - dropped on purpose, stores holding it load as fast.
+// normal: 3s classification wait + 500ms trade window (trades detected, slowest); the
+// recommended default. fast: 300ms wait, no trades, and late death records can show up as
+// false kills. The reference also has "instant" (no wait at all) - dropped on purpose,
+// stores holding it load as normal.
 export type LatencyMode = 'normal' | 'fast'
 
 export interface HuntLook {
