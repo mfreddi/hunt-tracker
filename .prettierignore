@@ -1,0 +1,6 @@
+out
+dist
+package-lock.json
+tsconfig.json
+tsconfig.*.json
+src/main/hunt/__tests__/fixtures

@@ -1,0 +1,42 @@
+appId: com.hunttracker.app
+productName: Hunt Tracker
+electronLanguages: ['ru', 'en']
+directories:
+  buildResources: build
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!resources/*'
+  - '!*.config.{js,ts,mjs,cjs}'
+  - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,README.md}'
+  - '!{.env,.env.*,.npmrc,package-lock.json,pnpm-lock.yaml}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json,vitest.config.ts}'
+  - '!**/*.{pfx,pem,p12,key}'
+  - '!**/*.tsbuildinfo'
+asarUnpack:
+  - resources/**
+extraResources:
+  - from: resources/overlay
+    to: overlay
+win:
+  executableName: HuntTracker
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  artifactName: ${name}-${version}-setup.${ext}
+  shortcutName: ${productName}
+  uninstallDisplayName: ${productName}
+  createDesktopShortcut: always
+mac:
+  notarize: false
+  category: public.app-category.utilities
+dmg:
+  artifactName: ${name}-${version}.${ext}
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Utility
+appImage:
+  artifactName: ${name}-${version}.${ext}
+npmRebuild: false

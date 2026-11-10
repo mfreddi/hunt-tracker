@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<title>Hunt Tracker - Алерты</title>
+<style>
+  html, body {
+    margin: 0; padding: 0; height: 100%; overflow: hidden;
+    background: transparent;
+    font-family: 'Segoe UI', Roboto, system-ui, -apple-system, sans-serif;
+  }
+  #stage { position: fixed; inset: 24px; display: flex; pointer-events: none; }
+  #stage.pos-tl { align-items: flex-start; justify-content: flex-start; }
+  #stage.pos-tc { align-items: flex-start; justify-content: center; }
+  #stage.pos-tr { align-items: flex-start; justify-content: flex-end; }
+  #stage.pos-ml { align-items: center; justify-content: flex-start; }
+  #stage.pos-mc { align-items: center; justify-content: center; }
+  #stage.pos-mr { align-items: center; justify-content: flex-end; }
+  #stage.pos-bl { align-items: flex-end; justify-content: flex-start; }
+  #stage.pos-bc { align-items: flex-end; justify-content: center; }
+  #stage.pos-br { align-items: flex-end; justify-content: flex-end; }
+
+  .alert {
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    animation-fill-mode: both;
+  }
+  .alert img, .alert video {
+    display: block; width: var(--w, 40vw); height: auto; max-height: 80vh;
+    object-fit: contain;
+    filter: drop-shadow(0 12px 40px rgba(0,0,0,0.5));
+  }
+  .alert .cap {
+    font-size: 26px; font-weight: 700; color: #fff;
+    text-align: center; max-width: 80vw; white-space: pre-line; /* {br} in the caption is a line break */
+    padding: 6px 14px; border-radius: 10px;
+    background: rgba(20,20,24,0.72);
+    paint-order: stroke; -webkit-text-stroke: 3px rgba(0,0,0,0.55);
+  }
+
+  /* a picture over the whole screen (the Hunt death alert): cropped to fit, the caption over its lower part */
+  .alert.fullscreen { position: fixed; inset: 0; gap: 0; }
+  .alert.fullscreen img, .alert.fullscreen video { width: 100vw; height: 100vh; max-height: none; object-fit: cover; filter: none; }
+  .alert.fullscreen .cap { position: absolute; left: 50%; bottom: 6%; transform: translateX(-50%); width: max-content; max-width: 92%; }
+
+  /* effects of an alert (Pro): a glow around the picture, a shake as it comes in, confetti on a canvas */
+  .alert.fx-glow img, .alert.fx-glow video { animation: fx-glow 1.5s ease-in-out infinite alternate; }
+  @keyframes fx-glow {
+    from { filter: drop-shadow(0 0 8px var(--glow)) drop-shadow(0 12px 40px rgba(0,0,0,0.5)); }
+    to   { filter: drop-shadow(0 0 28px var(--glow)) drop-shadow(0 0 64px var(--glow)) drop-shadow(0 12px 40px rgba(0,0,0,0.5)); }
+  }
+  #stage.fx-shake { animation: fx-shake .6s linear; }
+  @keyframes fx-shake {
+    0%, 100% { transform: translate(0, 0); }
+    10% { transform: translate(-9px, 4px); } 20% { transform: translate(8px, -5px); } 30% { transform: translate(-7px, -4px); }
+    40% { transform: translate(7px, 5px); } 50% { transform: translate(-5px, 3px); } 60% { transform: translate(5px, -3px); }
+    70% { transform: translate(-3px, 2px); } 80% { transform: translate(3px, -2px); } 90% { transform: translate(-1px, 1px); }
+  }
+  #fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
+
+  /* where the caption sits: under the picture (default), above it, or over its lower part */
+  .alert.cap-above { flex-direction: column-reverse; }
+  .alert.cap-over { position: relative; }
+  .alert.cap-over .cap { position: absolute; left: 50%; bottom: 6%; transform: translateX(-50%); width: max-content; max-width: 92%; }
+
+  /* ---- how an alert comes in (.in-*) and goes out (.out-*); the time of each is set by --t ---- */
+  .alert { animation-duration: var(--t, .45s); }
+  .in-pop        { animation-name: in-pop;   animation-timing-function: cubic-bezier(.2,1.2,.3,1); }
+  .in-slide-up   { animation-name: in-slide-up; }
+  .in-slide-down { animation-name: in-slide-down; }
+  .in-slide-left { animation-name: in-slide-left; }
+  .in-slide-right{ animation-name: in-slide-right; }
+  .in-bounce     { animation-name: in-bounce; animation-timing-function: ease-out; }
+  .in-zoom       { animation-name: in-zoom; }
+  .in-shake      { animation-name: in-shake; }
+  .in-fade       { animation-name: in-fade; }
+  .in-none       { animation: none; }
+  .out-pop        { animation-name: out-pop; }
+  .out-slide-up   { animation-name: out-slide-up; }
+  .out-slide-down { animation-name: out-slide-down; }
+  .out-slide-left { animation-name: out-slide-left; }
+  .out-slide-right{ animation-name: out-slide-right; }
+  .out-bounce     { animation-name: out-bounce; }
+  .out-zoom       { animation-name: out-zoom; }
+  .out-shake      { animation-name: out-shake; }
+  .out-fade       { animation-name: out-fade; }
+  .out-none       { animation: none; opacity: 0; }
+
+  @keyframes in-pop        { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: none; } }
+  @keyframes in-slide-up   { from { opacity: 0; transform: translateY(60vh); } to { opacity: 1; transform: none; } }
+  @keyframes in-slide-down { from { opacity: 0; transform: translateY(-60vh); } to { opacity: 1; transform: none; } }
+  @keyframes in-slide-left { from { opacity: 0; transform: translateX(60vw); } to { opacity: 1; transform: none; } }
+  @keyframes in-slide-right{ from { opacity: 0; transform: translateX(-60vw); } to { opacity: 1; transform: none; } }
+  @keyframes in-bounce {
+    0% { opacity: 0; transform: translateY(-50vh); }
+    55% { opacity: 1; transform: translateY(4vh); }
+    75% { transform: translateY(-2vh); }
+    90% { transform: translateY(1vh); }
+    100% { opacity: 1; transform: none; }
+  }
+  @keyframes in-zoom  { from { opacity: 0; transform: scale(0); } to { opacity: 1; transform: none; } }
+  @keyframes in-shake {
+    0% { opacity: 0; transform: translateX(0); }
+    15% { opacity: 1; transform: translateX(-14px); }
+    30% { transform: translateX(12px); }
+    45% { transform: translateX(-9px); }
+    60% { transform: translateX(6px); }
+    80% { transform: translateX(-3px); }
+    100% { opacity: 1; transform: none; }
+  }
+  @keyframes in-fade  { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes out-pop        { to { opacity: 0; transform: scale(.9); } }
+  @keyframes out-slide-up   { to { opacity: 0; transform: translateY(-60vh); } }
+  @keyframes out-slide-down { to { opacity: 0; transform: translateY(60vh); } }
+  @keyframes out-slide-left { to { opacity: 0; transform: translateX(-60vw); } }
+  @keyframes out-slide-right{ to { opacity: 0; transform: translateX(60vw); } }
+  @keyframes out-bounce { 30% { transform: translateY(2vh); } to { opacity: 0; transform: translateY(-50vh); } }
+  @keyframes out-zoom   { to { opacity: 0; transform: scale(0); } }
+  @keyframes out-shake {
+    20% { transform: translateX(-10px); } 40% { transform: translateX(10px); }
+    60% { transform: translateX(-6px); opacity: .8; } to { opacity: 0; transform: translateX(0); }
+  }
+  @keyframes out-fade   { to { opacity: 0; } }
+</style>
+</head>
+<body>
+<canvas id="fx"></canvas>
+<div id="stage" class="pos-mc"></div>
+<div id="unlock" style="display:none;position:fixed;left:8px;bottom:8px;padding:6px 10px;border-radius:6px;background:rgba(0,0,0,.7);color:#fff;font:13px system-ui,sans-serif;z-index:9">🔇 Кликни по странице, чтобы включить звук (в OBS это не нужно)</div>
+<audio id="snd" preload="auto"></audio>
+<audio id="voice" preload="auto"></audio>
+<script>
+// Opened from another PC by the LAN link (http://<ip>:1040/...): pictures and sounds the
+// app stored arrive as http://localhost:1040/media/..., which on that PC means itself.
+// Point them at the PC this page came from. On this PC (localhost) nothing changes.
+function lanMedia(text) {
+  if (typeof text !== 'string' || location.protocol !== 'http:' || !location.host || location.host === 'localhost:1040') return text
+  return text.split('http://localhost:1040/').join(location.origin + '/')
+}
+(function () {
+  var params = new URLSearchParams(location.search)
+  var DEMO = params.has('demo')
+  var HTTP = (location.protocol === 'http:' || location.protocol === 'https:')
+  // the same page serves /alerts (donations) and /killstreak (Hunt): each connects under its own name and takes only its own messages
+  var STREAK = /\/killstreak\/?$/.test(location.pathname) || params.get('overlay') === 'killstreak'
+  var WS = (HTTP ? 'ws://' + location.host : 'ws://localhost:' + (params.get('port') || '1040')) + '/?overlay=' + (STREAK ? 'killstreak' : 'alerts')
+  // the voice URL the app sends is relative (/voice/<id>): resolve it against the app, wherever this page runs
+  var ORIGIN = HTTP ? location.origin : 'http://localhost:' + (params.get('port') || '1040')
+  var QUEUE_CAP = 30
+  var ANIMS = ['pop', 'slide-up', 'slide-down', 'slide-left', 'slide-right', 'bounce', 'zoom', 'shake', 'fade', 'none']
+
+  var stage = document.getElementById('stage')
+  var snd = document.getElementById('snd')
+  var voiceEl = document.getElementById('voice')
+  var queue = []
+  var busy = false
+  var current = null // { skip: fn } of the alert on screen
+  var sock = null
+  // tells the app whether an alert is on (the picture or its voice) and how many wait: its skip button lights up
+  var lastStatus = ''
+  function report() {
+    if (STREAK) return // the skip button of the dock and the app is for the donation alerts
+    var msg = JSON.stringify({ type: 'alerts_status', playing: busy, queued: queue.length })
+    if (msg === lastStatus) return
+    try { if (sock && sock.readyState === 1) { sock.send(msg); lastStatus = msg } } catch (e) {}
+  }
+
+  var actx = null
+  function audioCtx() {
+    if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)() } catch (e) { return null } }
+    if (actx.state === 'suspended') actx.resume().catch(function () {})
+    return actx
+  }
+  // A normal browser tab only allows sound after a click; OBS browser sources do not need this.
+  var unlockHint = document.getElementById('unlock')
+  // a browser tab refused sound (no click on the page yet): tell the streamer, the next alerts play once they click
+  function blocked(err) {
+    if (err && err.name === 'NotAllowedError') unlockHint.style.display = 'block'
+  }
+  ;['click', 'keydown', 'pointerdown'].forEach(function (ev) {
+    document.addEventListener(ev, function () {
+      unlockHint.style.display = 'none'
+      audioCtx()
+      snd.play().then(function () { snd.pause() }).catch(function () {})
+      voiceEl.play().then(function () { voiceEl.pause() }).catch(function () {})
+    }, { once: true })
+  })
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) audioCtx() })
+
+  function vol(v, dflt) { return Math.max(0, Math.min(1, (v == null ? dflt : v) / 100)) }
+  function anim(v, dflt) { return ANIMS.indexOf(v) >= 0 ? v : dflt }
+
+  // A built-in sound for an alert that has none of its own (the kill streak announcer): a rising run of notes, longer and
+  // higher the higher the level (1..4), made here, no file needed.
+  function playChime(level, volume) {
+    var c = audioCtx()
+    if (!c) return
+    if (c.state === 'suspended') { blocked({ name: 'NotAllowedError' }); return }
+    var notes = [523.25, 659.25, 783.99, 1046.5, 1318.5] // C5 E5 G5 C6 E6
+    var n = Math.max(2, Math.min(5, Number(level) + 1))
+    var t0 = c.currentTime + 0.02
+    var peak = Math.max(0.0002, 0.35 * vol(volume, 70))
+    for (var i = 0; i < n; i++) {
+      var start = t0 + i * 0.11
+      var len = i === n - 1 ? 0.75 : 0.15
+      var gain = c.createGain()
+      gain.gain.setValueAtTime(0.0001, start)
+      gain.gain.exponentialRampToValueAtTime(peak, start + 0.012)
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + len)
+      gain.connect(c.destination)
+      var o = c.createOscillator(); o.type = 'triangle'; o.frequency.value = notes[i]
+      var o2 = c.createOscillator(); o2.type = 'square'; o2.frequency.value = notes[i] * 2
+      var g2 = c.createGain(); g2.gain.value = 0.18
+      o.connect(gain); o2.connect(g2); g2.connect(gain)
+      o.start(start); o2.start(start); o.stop(start + len + 0.05); o2.stop(start + len + 0.05)
+    }
+  }
+
+  function playSound(url, volume, onend) {
+    if (!url) { onend && onend(); return }
+    var done = false
+    function fin() { if (!done) { done = true; snd.onended = snd.onerror = null; onend && onend() } }
+    try {
+      snd.src = url
+      snd.volume = vol(volume, 70)
+      snd.currentTime = 0
+      snd.onended = fin
+      snd.onerror = fin
+      snd.play().catch(function (e) { blocked(e); fin() })
+    } catch (e) { fin() }
+  }
+
+  function playVoice(url, volume, onend) {
+    var done = false
+    function fin() { if (!done) { done = true; voiceEl.onended = voiceEl.onerror = null; onend && onend() } }
+    try {
+      voiceEl.src = url
+      voiceEl.volume = vol(volume, 100)
+      voiceEl.currentTime = 0
+      voiceEl.onended = fin
+      voiceEl.onerror = fin
+      voiceEl.play().catch(function (e) { blocked(e); fin() })
+    } catch (e) { fin() }
+  }
+
+  function stopAudio() {
+    try { snd.pause(); snd.onended = snd.onerror = null } catch (e) {}
+    try { voiceEl.pause(); voiceEl.onended = voiceEl.onerror = null } catch (e) {}
+  }
+
+  // Effects (Pro): the app sends them only when they apply (Pro, a big enough amount). The glow lasts as long as the alert; the
+  // shake and the confetti play when it comes in. The confetti state is kept here, nothing is read from the page while it runs.
+  var fxCanvas = document.getElementById('fx')
+  var fxCtx = fxCanvas.getContext('2d')
+  var particles = []
+  var fxLoop = false
+  function confetti(color, box) {
+    var w = (fxCanvas.width = window.innerWidth)
+    var h = (fxCanvas.height = window.innerHeight)
+    var r = box.getBoundingClientRect()
+    var cx = r.left + r.width / 2
+    var cy = r.top + r.height / 2
+    var colors = [/^#[0-9a-f]{6}$/i.test(color || '') ? color : '#ffd23f', '#ff4fa3', '#4a90e2', '#7ed321', '#ffffff']
+    for (var i = 0; i < 120; i++) {
+      var a = Math.random() * Math.PI * 2
+      var sp = 4 + Math.random() * 10
+      particles.push({ x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 5, g: 0.25 + Math.random() * 0.12,
+        rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 0.4, s: 6 + Math.random() * 8, c: colors[i % colors.length], life: 0 })
+    }
+    if (fxLoop) return
+    fxLoop = true
+    function frame() {
+      fxCtx.clearRect(0, 0, w, h)
+      particles = particles.filter(function (p) {
+        p.vy += p.g; p.x += p.vx; p.y += p.vy; p.vx *= 0.99; p.rot += p.vr; p.life++
+        if (p.y > h + 20 || p.life > 260) return false
+        fxCtx.save(); fxCtx.translate(p.x, p.y); fxCtx.rotate(p.rot); fxCtx.fillStyle = p.c
+        fxCtx.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2); fxCtx.restore()
+        return true
+      })
+      if (particles.length) requestAnimationFrame(frame)
+      else { fxLoop = false; fxCtx.clearRect(0, 0, w, h) }
+    }
+    requestAnimationFrame(frame)
+  }
+  function runEffects(fx, box) {
+    if (!fx) return
+    if (fx.shake) {
+      stage.classList.remove('fx-shake')
+      void stage.offsetWidth // restart the animation
+      stage.classList.add('fx-shake')
+      setTimeout(function () { stage.classList.remove('fx-shake') }, 700)
+    }
+    if (fx.confetti) confetti(fx.color, box)
+  }
+
+  function hexRgba(hex, pct, dflt) {
+    var m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || '') || /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(dflt)
+    var alpha = Math.max(0, Math.min(100, pct == null ? 100 : pct)) / 100
+    return 'rgba(' + parseInt(m[1], 16) + ',' + parseInt(m[2], 16) + ',' + parseInt(m[3], 16) + ',' + alpha + ')'
+  }
+
+  // The caption: the filled template in pieces (so the name and the amount can have their own colour), drawn the way the
+  // variant's caption style says. A payload without a style (an older one) gets the look the overlay always had.
+  function buildCaption(a) {
+    var st = a.captionStyle || {}
+    var cap = document.createElement('div')
+    cap.className = 'cap'
+    if (Array.isArray(a.captionParts) && a.captionParts.length) {
+      a.captionParts.forEach(function (p) {
+        var color = p.k === 'user' ? st.userColor : p.k === 'amount' ? st.amountColor : ''
+        var ownSize = p.k === 'text' && Number(st.textSize) > 0
+        if ((color && /^#[0-9a-f]{6}$/i.test(color)) || ownSize) {
+          var sp = document.createElement('span')
+          if (color && /^#[0-9a-f]{6}$/i.test(color)) sp.style.color = color
+          // the donor's message can have a size of its own
+          if (ownSize) sp.style.fontSize = Number(st.textSize) + 'px'
+          sp.textContent = p.t
+          cap.appendChild(sp)
+        } else cap.appendChild(document.createTextNode(p.t))
+      })
+    } else cap.textContent = a.caption
+    cap.style.fontSize = (Number(st.size) || 26) + 'px'
+    if (/^#[0-9a-f]{6}$/i.test(st.color || '')) cap.style.color = st.color
+    cap.style.fontWeight = st.bold === false ? '400' : '700'
+    if (st.align === 'left' || st.align === 'right') cap.style.textAlign = st.align
+    var ow = st.outlineWidth == null ? 3 : Number(st.outlineWidth)
+    if (ow <= 0) { cap.style.webkitTextStroke = '0'; cap.style.paintOrder = 'normal' }
+    else cap.style.webkitTextStroke = ow + 'px ' + hexRgba(st.outlineColor, st.outlineOpacity == null ? 55 : st.outlineOpacity, '#000000')
+    cap.style.background = st.bg === false ? 'none' : hexRgba(st.bgColor, st.bgOpacity == null ? 72 : st.bgOpacity, '#141418')
+    if (st.radius != null) cap.style.borderRadius = Number(st.radius) + 'px'
+    var fam = String(a.font || '').replace(/[^\p{L}\p{N} _.+&-]/gu, '')
+    if (fam) cap.style.fontFamily = "'" + fam + "', 'Segoe UI', Roboto, system-ui, sans-serif"
+    return cap
+  }
+
+  // The picture / video and the caption of an alert as a box. `preview`: the settings window shows it - no sound, a looping
+  // video, nothing timed.
+  function buildBox(a, preview) {
+    var box = document.createElement('div')
+    var cls = a.captionStyle && a.captionStyle.placement === 'above' ? 'cap-above' : a.captionStyle && a.captionStyle.placement === 'over' ? 'cap-over' : ''
+    if (a.fullscreen) cls += ' fullscreen'
+    box.className = 'alert ' + cls + ' in-' + anim(a.animationIn, 'pop')
+    box.style.setProperty('--w', (a.widthPct || 40) + 'vw')
+    if (a.effects && a.effects.glow) {
+      box.classList.add('fx-glow')
+      box.style.setProperty('--glow', /^#[0-9a-f]{6}$/i.test(a.effects.color || '') ? a.effects.color : '#ffd23f')
+    }
+    var media = null
+    if (a.mediaUrl && a.kind === 'video') {
+      media = document.createElement('video')
+      media.src = a.mediaUrl
+      media.autoplay = true
+      media.muted = preview || !!a.soundUrl
+      media.loop = !!preview
+      media.volume = vol(a.volume, 70)
+      media.playsInline = true
+      // refused with sound: show it without sound rather than a frozen first frame
+      var vp = media.play()
+      if (vp && vp.catch) vp.catch(function (e) { blocked(e); media.muted = true; media.play().catch(function () {}) })
+    } else if (a.mediaUrl) {
+      media = document.createElement('img')
+      media.src = a.mediaUrl
+    }
+    if (media) { media.onerror = function () { media.remove() }; box.appendChild(media) }
+    if (a.caption) box.appendChild(buildCaption(a))
+    return { box: box, media: media, cls: cls }
+  }
+
+  function pump() {
+    if (busy || !queue.length) return
+    busy = true
+    var a = queue.shift()
+    report()
+    stage.className = 'pos-' + (/^[tmb][lcr]$/.test(a.position) ? a.position : 'mc')
+
+    var built = buildBox(a, false)
+    var box = built.box
+    var media = built.media
+    stage.appendChild(box)
+    setTimeout(function () { runEffects(a.effects, box) }, 250)
+
+    // The alert is on screen for its time. A voice that is still talking then goes on WITHOUT the picture (a long
+    // message must not cover the screen); the next alert waits until the voice has finished (but not for ever).
+    var dur = Math.max(1, Number(a.duration) || 6) * 1000
+    var voiceDone = !a.voice
+    var hiddenDone = false
+    var hiding = false
+    var released = false
+    var hardStop = setTimeout(function () { finish() }, dur + 30000)
+
+    function tryRelease() {
+      if (released || !hiddenDone || !voiceDone) return
+      released = true
+      clearTimeout(hardStop)
+      stopAudio()
+      current = null
+      busy = false
+      report()
+      pump()
+    }
+    function hide() {
+      if (hiding) return
+      hiding = true
+      box.className = 'alert ' + built.cls + (a.effects && a.effects.glow ? ' fx-glow' : '') + ' out-' + anim(a.animationOut, 'fade')
+      setTimeout(function () {
+        box.remove()
+        try { if (media) { media.pause && media.pause(); media.src = '' } } catch (e) {}
+        try { snd.pause() } catch (e) {}
+        hiddenDone = true
+        tryRelease()
+      }, 450)
+    }
+    // skip: the picture and the voice stop now
+    function finish() {
+      // a voice that has not started yet (it waits for the video / sound / the time) must not start later
+      voiceStarted = true
+      stopAudio()
+      voiceDone = true
+      hide()
+      tryRelease()
+    }
+
+    current = { skip: finish }
+    setTimeout(function () {
+      // the set time is the limit of the picture / video / sound: a longer one is cut here and the voice (if any) starts
+      try { if (media && media.pause) media.pause() } catch (e) {}
+      try { snd.pause() } catch (e) {}
+      hide()
+      try { startVoiceOnce() } catch (e) { voiceDone = true; tryRelease() }
+    }, dur)
+
+    // sound first (a video carries its own audio), then the voice
+    function startVoice() {
+      if (!a.voice || !a.voice.url) { voiceDone = true; tryRelease(); return }
+      playVoice(ORIGIN + a.voice.url, a.voice.volume, function () { voiceDone = true; tryRelease() })
+    }
+    var voiceStarted = false
+    function startVoiceOnce() { if (!voiceStarted && !released) { voiceStarted = true; startVoice() } }
+    // The voice comes after the picture's own sound: the video to its end and the sound file to its end (both when there
+    // are both), or at once when there is neither. A failed / hung one must not hold the voice for ever.
+    var waiting = 0
+    function oneDone() { if (--waiting <= 0) startVoiceOnce() }
+    function once(fn) { var d = false; return function () { if (!d) { d = true; fn() } } }
+    if (media && a.kind === 'video') {
+      waiting++
+      var videoDone = once(oneDone)
+      media.addEventListener('ended', videoDone)
+      media.addEventListener('error', videoDone)
+      setTimeout(videoDone, 60000)
+    }
+    if (a.soundUrl) {
+      waiting++
+      playSound(a.soundUrl, a.volume, once(oneDone))
+    }
+    if (!a.soundUrl && a.chime) playChime(a.chime, a.volume)
+    if (!waiting) startVoiceOnce()
+  }
+
+  function onAlert(payload) {
+    if (!payload || (!payload.mediaUrl && !payload.soundUrl && !payload.caption)) return
+    queue.push(payload)
+    if (queue.length > QUEUE_CAP) queue.shift()
+    report()
+    pump()
+  }
+
+  // skip: the alert on screen goes away now; clear: and the waiting ones too (buttons in the settings of the app)
+  function onControl(m) {
+    if (m.action === 'clear') { queue.length = 0; report() }
+    if ((m.action === 'skip' || m.action === 'clear') && current) current.skip()
+  }
+
+  var retries = 0
+  function connect() {
+    var ws = new WebSocket(WS)
+    sock = ws
+    ws.onmessage = function (ev) {
+      var m
+      try { m = JSON.parse(lanMedia(ev.data)) } catch (e) { return }
+      if (STREAK) { if (m.type === 'streak_alert') onAlert(m.payload) }
+      else if (m.type === 'alert_box') onAlert(m.payload)
+      else if (m.type === 'alert_box_control') onControl(m)
+    }
+    // the app is off or restarting: try again soon, then less and less often (2 s ... 15 s)
+    ws.onopen = function () { retries = 0; lastStatus = ''; report() }
+    ws.onclose = function () { setTimeout(connect, Math.min(15000, 2000 * Math.pow(1.6, retries++))) }
+    ws.onerror = function () { ws.close() }
+  }
+  // ?preview: the settings window shows one alert, as the form says, and nothing else - no connection to the app (it must not
+  // count as an open alerts overlay), no sound, nothing timed. It gets the alert from the window that embeds it.
+  var PREVIEW = params.has('preview')
+  var previewTimer = null
+  function showPreview(a) {
+    clearInterval(previewTimer)
+    stage.textContent = ''
+    if (!a) return
+    stage.className = 'pos-' + (/^[tmb][lcr]$/.test(a.position) ? a.position : 'mc')
+    var b = buildBox(a, true)
+    b.box.className = 'alert ' + b.cls + (a.effects && a.effects.glow ? ' fx-glow' : '') + ' in-none'
+    stage.appendChild(b.box)
+    // the effects of a real alert play once as it comes in; in the preview they repeat so they can be looked at
+    if (a.effects) {
+      setTimeout(function () { runEffects(a.effects, b.box) }, 200)
+      previewTimer = setInterval(function () { runEffects(a.effects, b.box) }, 4500)
+    }
+  }
+  if (PREVIEW) {
+    window.addEventListener('message', function (ev) {
+      var m = ev.data
+      if (m && m.type === 'alert_preview') showPreview(m.payload)
+    })
+    try { parent.postMessage({ type: 'alert_preview_ready' }, '*') } catch (e) {}
+  } else connect()
+
+  // ?demo - a sample alert every few seconds, going through the animations (only to look at the page in a browser)
+  if (DEMO) {
+    var i = 0
+    function demo() {
+      var name = ANIMS[i % ANIMS.length]
+      i++
+      onAlert({
+        kind: 'image', widthPct: 30, duration: 3, position: 'mc', volume: 60,
+        animationIn: name, animationOut: i % 2 ? 'fade' : name,
+        mediaUrl: 'https://media.tenor.com/8Xn3zNaMBk0AAAAi/pepe-dance.gif',
+        caption: 'Тестер - ' + (100 * i) + ' RUB · ' + name
+      })
+    }
+    demo()
+    setInterval(demo, 5000)
+  }
+})()
+</script>
+</body>
+</html>

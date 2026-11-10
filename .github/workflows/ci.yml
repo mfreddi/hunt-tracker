@@ -1,0 +1,147 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Run typecheck
+        run: npm run typecheck
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  build-windows:
+    needs: lint-and-test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Windows
+        run: npm run build:win
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HuntTracker-Windows
+          path: dist/*.exe
+          retention-days: 7
+
+  build-macos:
+    needs: lint-and-test
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build macOS
+        run: npm run build:mac
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HuntTracker-macOS
+          path: dist/*.dmg
+          retention-days: 7
+
+  build-linux:
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Linux
+        run: npm run build:linux
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: HuntTracker-Linux
+          path: dist/*.{AppImage,deb,rpm}
+          retention-days: 7
+
+  release:
+    needs: [build-windows, build-macos, build-linux]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: HuntTracker-Windows
+          path: dist/win
+
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: HuntTracker-macOS
+          path: dist/mac
+
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: HuntTracker-Linux
+          path: dist/linux
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: build/release-notes.md
+          files: |
+            dist/win/*
+            dist/mac/*
+            dist/linux/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,29 @@
+Hunt Tracker
+Copyright (C) 2026 mFred
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program. If not, see <https://www.gnu.org/licenses/>.
+
+Attribution
+-----------
+
+This project is licensed under the GNU GPL v3 (or later). If you fork, reuse or
+redistribute it (or a modified version), you must keep this copyright notice and
+attribution to the original author, and keep the project open source under the
+same license. The GNU GPL v3, section 5, requires that modified versions carry
+prominent notices stating that they were changed.
+
+    Original author: mFred
+    Project:         Hunt Tracker
+    Source:          https://github.com/mfreddi/hunt-tracker
+
+Not affiliated with Crytek or NVIDIA. Hunt: Showdown is a trademark of Crytek.

@@ -1,0 +1,13 @@
+node_modules
+dist
+out
+.vite/
+.DS_Store
+*.log*
+.vscode/
+.idea/
+*.tsbuildinfo
+
+# Certificate files
+*.pem
+*.pfx

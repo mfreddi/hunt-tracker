@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Hunt Tracker - Hunt Showdown статистика</title>
+  <style>
+    :root {
+      --bg: #12110f;
+      --text: #e6e0d2;
+      --accent: #d4a84b;
+      --scale: 1;
+      --good: #8fbf7a;
+      --bad: #d0584b;
+      --muted: #8a8374;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      background: transparent;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+
+    #stage {
+      position: fixed;
+      inset: 16px;
+      display: flex;
+      pointer-events: none;
+    }
+
+    #stage.pos-top-left {
+      align-items: flex-start;
+      justify-content: flex-start;
+    }
+
+    #stage.pos-top {
+      align-items: flex-start;
+      justify-content: center;
+    }
+
+    #stage.pos-top-right {
+      align-items: flex-start;
+      justify-content: flex-end;
+    }
+
+    #stage.pos-bottom-left {
+      align-items: flex-end;
+      justify-content: flex-start;
+    }
+
+    #stage.pos-bottom {
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    #stage.pos-bottom-right {
+      align-items: flex-end;
+      justify-content: flex-end;
+    }
+
+    .panel {
+      width: 250px;
+      box-sizing: border-box;
+      padding: 10px 12px 11px;
+      color: var(--text);
+      background: color-mix(in srgb, var(--bg) var(--bga, 100%), transparent);
+      border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+      border-left: 3px solid var(--accent);
+      border-radius: 6px;
+      font-size: calc(13px * var(--scale));
+      line-height: 1.2;
+      box-shadow: 0 10px 30px -12px rgba(0, 0, 0, var(--shadow, .8));
+      zoom: var(--scale);
+    }
+
+    /* Mostly see-through background: keep the text readable over the game. */
+    .panel.clear {
+      text-shadow: 0 1px 2px rgba(0, 0, 0, .9), 0 0 6px rgba(0, 0, 0, .6);
+      /* Muted labels vanish over a bright game scene: lift them toward the text color. */
+      --muted: color-mix(in srgb, var(--text) 75%, #8a8374);
+    }
+
+    .head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .title {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: .3px;
+      color: var(--accent);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--good);
+      box-shadow: 0 0 6px var(--good);
+    }
+
+    .dot.off {
+      background: var(--muted);
+      box-shadow: none;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: color-mix(in srgb, var(--accent) 18%, transparent);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .cell {
+      background: color-mix(in srgb, color-mix(in srgb, var(--bg) 88%, #fff) var(--bga, 100%), transparent);
+      padding: 6px 4px 5px;
+      text-align: center;
+    }
+
+    .cell b {
+      display: block;
+      font-size: 19px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .cell span {
+      font-size: 10.5px;
+      color: var(--muted);
+    }
+
+    .cell.good b {
+      color: var(--good);
+    }
+
+    .cell.bad b {
+      color: var(--bad);
+    }
+
+    .cell.kd b {
+      color: var(--accent);
+    }
+
+    .modes {
+      display: flex;
+      gap: 10px;
+      justify-content: space-between;
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .modes i {
+      font-style: normal;
+      color: var(--text);
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .match {
+      margin-top: 9px;
+      padding-top: 8px;
+      border-top: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+    }
+
+    .match-head {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 5px;
+    }
+
+    .match-head b {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    /* A single widget as its own OBS source (?show=recent): no corner placement - OBS
+       places and scales it - and the block is the whole panel. */
+    #stage.widget {
+      align-items: flex-start;
+      justify-content: flex-start;
+      inset: 0;
+    }
+
+    .panel.only .recent {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: 0;
+    }
+
+    /* Win rate per map (Pro, ?show=maps): the rate fills the row, map name on the left. */
+    .panel.maps {
+      width: 280px;
+    }
+
+    .maps-title {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 6px;
+    }
+
+    .map-row {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 10px;
+      height: 24px;
+      padding: 0 8px;
+      border-radius: 3px;
+      overflow: hidden;
+      font-size: 12.5px;
+      background: color-mix(in srgb, var(--text) 9%, transparent);
+    }
+
+    .map-row + .map-row {
+      margin-top: 4px;
+    }
+
+    .map-fill {
+      position: absolute;
+      inset: 0 auto 0 0;
+      background: color-mix(in srgb, var(--accent) 38%, transparent);
+    }
+
+    .map-row.good .map-fill {
+      background: color-mix(in srgb, var(--good) 40%, transparent);
+    }
+
+    .map-row.bad .map-fill {
+      background: color-mix(in srgb, var(--bad) 40%, transparent);
+    }
+
+    .map-row span,
+    .map-row b {
+      position: relative;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .map-row b {
+      font-variant-numeric: tabular-nums;
+    }
+
+    .map-row i {
+      font-style: normal;
+      font-weight: 400;
+      opacity: .65;
+      margin-left: 4px;
+    }
+
+    .maps-note {
+      margin-top: 6px;
+      font-size: 10.5px;
+      color: var(--muted);
+    }
+
+    /* Challenge goals (Pro, ?show=goal): one progress bar per goal. */
+    .panel.goals {
+      width: 280px;
+    }
+
+    .goal + .goal {
+      margin-top: 9px;
+    }
+
+    .goal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 4px;
+      font-size: 12.5px;
+      font-weight: 600;
+    }
+
+    .goal-head b {
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .goal-bar {
+      height: 10px;
+      border-radius: 3px;
+      overflow: hidden;
+      background: color-mix(in srgb, var(--text) 14%, transparent);
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 18%, transparent);
+    }
+
+    .goal-fill {
+      height: 100%;
+      width: 0;
+      background: var(--accent);
+      transition: width .6s ease;
+    }
+
+    .goal.done .goal-fill {
+      background: var(--good);
+    }
+
+    .goal.done .goal-head b {
+      color: var(--good);
+    }
+
+    .goal.done .goal-head span::before {
+      content: '✓ ';
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .goal-fill {
+        transition: none;
+      }
+    }
+
+    /* Recent matches (Pro): one chip per match, kills inside, color = result. */
+    .recent {
+      margin-top: 9px;
+      padding-top: 8px;
+      border-top: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+    }
+
+    .recent-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 5px;
+    }
+
+    .recent-head b {
+      color: var(--text);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .chips {
+      display: flex;
+      gap: 3px;
+      justify-content: flex-end;
+    }
+
+    .chip {
+      min-width: 21px;
+      height: 21px;
+      padding: 0 3px;
+      box-sizing: border-box;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 3px;
+      font-size: 12px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: #0d0d0c;
+      background: var(--muted);
+      text-shadow: none;
+    }
+
+    .chip.won {
+      background: var(--good);
+    }
+
+    /* no clear result (the game was closed mid-match): an outline, not a fill */
+    .chip:not(.won):not(.lost) {
+      background: transparent;
+      color: var(--muted);
+      box-shadow: inset 0 0 0 1px var(--muted);
+    }
+
+    .chip.lost {
+      background: var(--bad);
+      color: #fff;
+    }
+
+    /* the latest match is outlined */
+    .chip:last-child {
+      outline: 1px solid var(--text);
+      outline-offset: 1px;
+    }
+
+    .skulls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+      min-height: 16px;
+      align-items: center;
+    }
+
+    .skull {
+      width: 15px;
+      height: 16px;
+    }
+
+    .skull.kill {
+      color: var(--text);
+    }
+
+    .skull.death {
+      color: var(--bad);
+    }
+
+    .more {
+      font-size: 11px;
+      color: var(--muted);
+      margin-right: 3px;
+    }
+
+    .empty {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    /* ---------- Pro themes, styled after the game's menus (the tracker sends
+       theme="classic" without Pro). Textures are procedural SVG noise, inline:
+       no game assets. The texture sits on ::before so the background opacity
+       setting fades it (--bgo) while the text stays solid. ---------- */
+    .panel.theme-slate,
+    .panel.theme-wood,
+    .panel.theme-blood {
+      position: relative;
+      isolation: isolate;
+      background: transparent;
+      border-radius: 0;
+      box-shadow: none;
+      padding: 12px 14px 11px;
+      --muted: #c9c8b9;
+    }
+    .panel.theme-slate::before,
+    .panel.theme-wood::before,
+    .panel.theme-blood::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      opacity: var(--bgo, 1);
+    }
+    .theme-slate .title,
+    .theme-wood .title,
+    .theme-blood .title {
+      font-family: 'Palatino Linotype', 'Book Antiqua', Georgia, serif;
+      font-weight: 400;
+      font-size: 17px;
+      letter-spacing: .2px;
+      text-shadow: 0 2px 3px #000;
+    }
+    .theme-slate .cell b,
+    .theme-wood .cell b,
+    .theme-blood .cell b {
+      text-shadow: 0 2px 2px #000;
+    }
+    .theme-slate .cell span,
+    .theme-wood .cell span,
+    .theme-blood .cell span {
+      font-weight: 600;
+    }
+    .theme-slate .stats,
+    .theme-wood .stats,
+    .theme-blood .stats {
+      background: transparent;
+      gap: 5px;
+    }
+    .theme-slate .dot,
+    .theme-wood .dot,
+    .theme-blood .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 0;
+      transform: rotate(45deg);
+      box-shadow: none;
+    }
+    .theme-slate .skull,
+    .theme-wood .skull,
+    .theme-blood .skull {
+      width: 18px;
+      height: 19px;
+      filter: drop-shadow(0 1px 2px #000);
+    }
+
+    /* Slate: dark stone with torn edges, ivory and old gold. */
+    .panel.theme-slate {
+      --text: #eeeede;
+      --accent: #c7c49a;
+      --good: #b5c293;
+      --bad: #d4554d;
+      border: 1px solid #8c8c7b;
+      clip-path: polygon(0 0, 18% .4%, 41% 0, 67% .5%, 100% 0, 99.6% 23%, 100% 51%, 99.5% 79%, 100% 100%, 74% 99.5%, 49% 100%, 23% 99.6%, 0 100%, .4% 66%, 0 34%);
+    }
+    .panel.theme-slate::before {
+      background:
+        linear-gradient(180deg, #0004, #0000 28%, #0006 76%, #000b),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E %3Cfilter id='s' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.021 .03' numOctaves='5' seed='4' stitchTiles='stitch'/%3E %3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='0.2' intercept='0.045'/%3E%3CfeFuncG type='linear' slope='0.2' intercept='0.05'/%3E%3CfeFuncB type='linear' slope='0.2' intercept='0.053'/%3E%3C/feComponentTransfer%3E%3C/filter%3E %3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E %3Crect width='400' height='400' fill='%231e1f20'/%3E%3Crect width='400' height='400' filter='url(%23s)'/%3E%3Crect width='400' height='400' filter='url(%23g)' opacity='.08'/%3E %3Cg fill='none' stroke='%239a9a90' stroke-width='.6' opacity='.12'%3E%3Cpath d='M14 60l34 16 25-6 36 21 10 26M250 300l30-20 9-24 24-12M60 380l30-22 12-17 30-5'/%3E%3C/g%3E%3C/svg%3E") center / 400px;
+      box-shadow: inset 0 0 0 2px #090a09, inset 0 0 30px 6px #0009;
+    }
+    .theme-slate .title {
+      color: #f0efe5;
+    }
+    .theme-slate .head,
+    .theme-blood .head {
+      padding-bottom: 6px;
+      border-bottom: 1px solid #88897880;
+    }
+    .theme-slate .cell {
+      background: rgba(3, 4, 3, calc(.45 * var(--bgo, 1)));
+      border: 1px solid #82847755;
+      box-shadow: inset 0 0 0 1px #0008;
+    }
+    .theme-slate .dot {
+      background: #b5c293;
+    }
+    .theme-slate .match {
+      border-top: 1px solid #88897880;
+    }
+
+    /* Wood: dark planks, iron corner rivets, brass. */
+    .panel.theme-wood {
+      --text: #efe6d6;
+      --accent: #e0b15a;
+      --good: #b8cf86;
+      --bad: #dc5a45;
+      border: 2px solid #2b2622;
+      outline: 1px solid #6d5f4c88;
+      outline-offset: -4px;
+    }
+    .panel.theme-wood::before {
+      background:
+        radial-gradient(circle at 9px 9px, #b9b2a2 0 1.6px, #3a3631 2.4px 5px, transparent 5.5px),
+        radial-gradient(circle at calc(100% - 9px) 9px, #b9b2a2 0 1.6px, #3a3631 2.4px 5px, transparent 5.5px),
+        radial-gradient(circle at 9px calc(100% - 9px), #b9b2a2 0 1.6px, #3a3631 2.4px 5px, transparent 5.5px),
+        radial-gradient(circle at calc(100% - 9px) calc(100% - 9px), #b9b2a2 0 1.6px, #3a3631 2.4px 5px, transparent 5.5px),
+        linear-gradient(180deg, #0003, #0000 30%, #0005 80%, #0009),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='280'%3E %3Cfilter id='w' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.004 .11' numOctaves='4' seed='11' stitchTiles='stitch'/%3E %3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='.34' intercept='.07'/%3E%3CfeFuncG type='linear' slope='.22' intercept='.045'/%3E%3CfeFuncB type='linear' slope='.14' intercept='.03'/%3E%3C/feComponentTransfer%3E%3C/filter%3E %3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='5' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E %3Crect width='400' height='280' fill='%2322170f'/%3E%3Crect width='400' height='280' filter='url(%23w)'/%3E%3Crect width='400' height='280' filter='url(%23g)' opacity='.07'/%3E %3Cg stroke='%23000' stroke-width='2' opacity='.55'%3E%3Cpath d='M0 70h400M0 140h400M0 210h400'/%3E%3C/g%3E %3Cg stroke='%23c9a77a' stroke-width='1' opacity='.08'%3E%3Cpath d='M0 72h400M0 142h400M0 212h400'/%3E%3C/g%3E%3C/svg%3E") center / 400px 280px;
+      box-shadow: inset 0 0 0 1px #000, inset 0 0 26px 4px #000a;
+    }
+    .theme-wood .title {
+      color: var(--accent);
+    }
+    .theme-wood .head {
+      padding: 0 8px 6px;
+      border-bottom: 1px solid #6d5f4c99;
+    }
+    .theme-wood .cell {
+      background: rgba(12, 8, 5, calc(.55 * var(--bgo, 1)));
+      border: 1px solid #6d5f4c66;
+      border-radius: 2px;
+      box-shadow: inset 0 1px 0 #ffffff0d;
+    }
+    .theme-wood .dot {
+      background: var(--accent);
+    }
+    .theme-wood .match {
+      border-top: 1px solid #6d5f4c99;
+    }
+
+    /* Blood: the in-game blood event - dried-blood stone, fresh drips on top. */
+    .panel.theme-blood {
+      --text: #f1e2d6;
+      --accent: #e04a3b;
+      --good: #cfc8a2;
+      --bad: #ff5c4a;
+      --muted: #cdb3a6;
+      border: 1px solid #6b1712;
+      padding-top: 16px;
+      clip-path: polygon(0 0, 100% 0, 99.6% 30%, 100% 62%, 99.5% 100%, 70% 99.5%, 38% 100%, 0 99.6%, .4% 55%);
+    }
+    .panel.theme-blood::before {
+      background:
+        radial-gradient(ellipse at 50% 120%, #5a0b0844, transparent 70%),
+        linear-gradient(180deg, #0002, #0000 30%, #0006 78%, #000c),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E %3Cfilter id='s' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.021 .03' numOctaves='5' seed='9' stitchTiles='stitch'/%3E %3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='0.3' intercept='0.06'/%3E%3CfeFuncG type='linear' slope='0.11' intercept='0.02'/%3E%3CfeFuncB type='linear' slope='0.1' intercept='0.02'/%3E%3C/feComponentTransfer%3E%3C/filter%3E %3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E %3Crect width='400' height='400' fill='%231a0d0c'/%3E%3Crect width='400' height='400' filter='url(%23s)'/%3E%3Crect width='400' height='400' filter='url(%23g)' opacity='.08'/%3E %3Cg fill='none' stroke='%239a9a90' stroke-width='.6' opacity='.12'%3E%3Cpath d='M14 60l34 16 25-6 36 21 10 26M250 300l30-20 9-24 24-12M60 380l30-22 12-17 30-5'/%3E%3C/g%3E%3C/svg%3E") center / 400px;
+      box-shadow: inset 0 0 0 2px #120403, inset 0 0 34px 8px #000b;
+    }
+    /* drips on their own layer above the stone, fading with the background */
+    .panel.theme-blood::after {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 44px;
+      z-index: -1;
+      pointer-events: none;
+      opacity: var(--bgo, 1);
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='250' height='48'%3E%3Cg fill='%236e0c08'%3E%3Cpath d='M0 0h250v6c-14 2-26-1-40 1s-24-2-38 0-26 1-40-1-22 2-36 1-24-2-36 0-28 1-60-1z'/%3E%3Cpath d='M11 4 C11 7.0 11.4 14 14 17 C16.6 14 17 7.0 17 4Z'/%3E%3Cpath d='M28 4 C28 13.0 28.4 26 31 29 C33.6 26 34 13.0 34 4Z'/%3E%3Cpath d='M49 4 C49 4.5 49.4 9 52 12 C54.6 9 55 4.5 55 4Z'/%3E%3Cpath d='M71 4 C71 16.0 71.4 32 74 35 C76.6 32 77 16.0 77 4Z'/%3E%3Cpath d='M94 4 C94 6.0 94.4 12 97 15 C99.6 12 100 6.0 100 4Z'/%3E%3Cpath d='M118 4 C118 11.0 118.4 22 121 25 C123.6 22 124 11.0 124 4Z'/%3E%3Cpath d='M143 4 C143 4.0 143.4 8 146 11 C148.6 8 149 4.0 149 4Z'/%3E%3Cpath d='M165 4 C165 18.0 165.4 36 168 39 C170.6 36 171 18.0 171 4Z'/%3E%3Cpath d='M187 4 C187 7.5 187.4 15 190 18 C192.6 15 193 7.5 193 4Z'/%3E%3Cpath d='M210 4 C210 12.0 210.4 24 213 27 C215.6 24 216 12.0 216 4Z'/%3E%3Cpath d='M233 4 C233 5.5 233.4 11 236 14 C238.6 11 239 5.5 239 4Z'/%3E%3C/g%3E%3Cg fill='%23b3201a' opacity='.55'%3E%3Cpath d='M0 0h250v3c-20 1-40-1-60 0s-40 1-62 0-42-1-64 0-44 1-64-1z'/%3E%3C/g%3E%3C/svg%3E") top / 100% 44px no-repeat;
+      filter: drop-shadow(0 1px 1px #000a);
+    }
+    .theme-blood .title {
+      color: #f4e6da;
+      text-shadow: 0 2px 3px #000, 0 0 12px #c0221699;
+    }
+    .theme-blood .head {
+      border-bottom-color: #8a1d1699;
+    }
+    .theme-blood .cell {
+      background: rgba(10, 2, 2, calc(.5 * var(--bgo, 1)));
+      border: 1px solid #7a1a1366;
+      box-shadow: inset 0 0 0 1px #0008;
+    }
+    .theme-blood .cell.kd b {
+      text-shadow: 0 2px 2px #000, 0 0 10px #e04a3b88;
+    }
+    .theme-blood .dot {
+      background: var(--accent);
+    }
+    .theme-blood .match {
+      border-top: 1px solid #8a1d1699;
+    }
+    .theme-blood .skull.kill {
+      color: #f1e2d6;
+    }
+  </style>
+</head>
+
+<body>
+  <svg width="0" height="0" aria-hidden="true" style="position:absolute">
+    <symbol id="skull" viewBox="0 0 64 68">
+      <path fill="currentColor"
+        d="M31 5 25 9 19 8 12 15 8 27 11 36 7 40 12 46 18 48 21 55 19 60 24 63 28 60 31 65 35 61 39 64 44 60 42 54 47 49 53 46 57 40 53 36 56 27 52 15 45 8 39 9 34 5Z" />
+      <path fill="#111"
+        d="M15 31 20 25 29 27 28 34 22 39 16 37ZM49 31 44 25 35 27 36 34 42 39 48 37ZM32 34 27 45 32 43 37 45Z" />
+      <path fill="#111" d="M23 51h18v5H23z" />
+      <path fill="currentColor" d="M27 52h2v7h-2zm4 0h2v8h-2zm4 0h2v7h-2z" />
+    </symbol>
+  </svg>
+  <div id="stage" class="pos-top-left"></div>
+  <script>
+  // Opened from another PC by the LAN link (http://<ip>:1040/...): pictures and sounds the
+  // app stored arrive as http://localhost:1040/media/..., which on that PC means itself.
+  // Point them at the PC this page came from. On this PC (localhost) nothing changes.
+  function lanMedia(text) {
+    if (typeof text !== 'string' || location.protocol !== 'http:' || !location.host || location.host === 'localhost:1040') return text
+    return text.split('http://localhost:1040/').join(location.origin + '/')
+  }
+    (function () {
+      var params = new URLSearchParams(location.search)
+      var DEMO = params.has('demo')
+      var WS = (location.protocol === 'http:' || location.protocol === 'https:')
+        ? 'ws://' + location.host
+        : 'ws://localhost:' + (params.get('port') || '1040')
+
+      var stage = document.getElementById('stage')
+      var root = document.documentElement.style
+
+      var MODES = [
+        ['Bounty Hunt', 'Hunt'],
+        ['Bounty Clash', 'Clash'],
+        ['Soul Survivor', 'Soul']
+      ]
+
+      function esc(s) {
+        return String(s).replace(/[&<>"]/g, function (c) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]
+        })
+      }
+      function num(v) { v = Number(v); return isFinite(v) && v > 0 ? v : 0 }
+      function fmtDuration(ms) {
+        var m = Math.max(0, Math.floor(ms / 60000))
+        var mm = m % 60
+        return Math.floor(m / 60) + ':' + (mm < 10 ? '0' : '') + mm
+      }
+      function cell(cls, value, label) {
+        return '<div class="cell ' + cls + '"><b>' + value + '</b><span>' + label + '</span></div>'
+      }
+
+      // Which part to draw: everything (default, the original panel) or one widget
+      // as its own OBS source: ?show=recent
+      var SHOW = /^(recent|goal|maps)$/.test(params.get('show') || '') ? params.get('show') : 'all'
+
+      // Recent matches (the tracker sends it only with Pro, null otherwise).
+      function recentBlock(rc) {
+        if (!rc || !rc.matches || !rc.matches.length) return ''
+        var h = '<div class="recent"><div class="recent-head"><span>Последние катки</span><b>Серия ' + num(rc.streak) + ' · Рекорд ' + num(rc.bestKills) + '</b></div><div class="chips">'
+        rc.matches.forEach(function (m) {
+          var cls = m.outcome === 'survived' ? 'won' : m.outcome === 'lost' ? 'lost' : ''
+          var tip = (m.outcome === 'survived' ? 'Выжил' : m.outcome === 'lost' ? 'Не выжил' : 'Без результата') + ' · ' + esc(m.mapName || '') + ' · ' + num(m.kills) + '/' + num(m.deaths)
+          h += '<span class="chip ' + cls + '" title="' + tip + '">' + num(m.kills) + '</span>'
+        })
+        return h + '</div></div>'
+      }
+
+      // Win rate per map (Pro): the tracker sends the rows (null without Pro).
+      function mapsBlock(s) {
+        var rows = s.maps
+        if (!rows || !rows.length) return ''
+        var period = (s.look && s.look.mapsPeriod) === 'session' ? 'за эфир' : 'за всё время'
+        return '<div class="maps-title">Винрейт по картам</div>' + rows.map(function (m) {
+          var rate = Math.max(0, Math.min(100, num(m.rate)))
+          var tone = rate >= 60 ? ' good' : rate < 40 ? ' bad' : ''
+          return '<div class="map-row' + tone + '"><div class="map-fill" style="width:' + rate + '%"></div><span>' + esc(m.name) + '</span><b>' + rate + '%<i>' + num(m.survived) + '/' + num(m.games) + '</i></b></div>'
+        }).join('') + '<div class="maps-note">выжил / сыграно · ' + period + '</div>'
+      }
+
+      // Challenge goals (Pro): the settings keep the whole list, only enabled ones are drawn.
+      function goalBlock(s) {
+        if (!s.proActive) return ''
+        var list = (s.goals || []).filter(function (g) { return g.enabled !== false })
+        if (!list.length) return ''
+        return list.map(function (g) {
+          var label = g.title || GOAL_LABELS[g.metric] || ''
+          var pct = Math.max(0, Math.min(100, Math.round(num(g.value) * 100 / Math.max(1, num(g.target)))))
+          return '<div class="goal' + (g.done ? ' done' : '') + '"><div class="goal-head"><span>' + esc(label) + '</span><b>' + num(g.value) + ' / ' + num(g.target) + '</b></div><div class="goal-bar"><div class="goal-fill" style="width:' + pct + '%"></div></div></div>'
+        }).join('')
+      }
+      var GOAL_LABELS = {
+        kills: 'Убийств за эфир',
+        survived: 'Выживаний за эфир',
+        games: 'Каток за эфир',
+        streak: 'Выживаний подряд',
+        bestKills: 'Убийств за одну катку'
+      }
+
+      var last = null
+      function render(s) {
+        last = s
+        if (!s) { stage.innerHTML = ''; return }
+        var L = s.look || {}
+        stage.className = SHOW === 'all' ? 'pos-' + (L.position || 'top-left') : 'widget'
+        if (L.bg) root.setProperty('--bg', L.bg)
+        if (L.text) root.setProperty('--text', L.text)
+        if (L.accent) root.setProperty('--accent', L.accent)
+        root.setProperty('--scale', L.scale || 1)
+        var op = typeof L.bgOpacity === 'number' ? Math.min(1, Math.max(0, L.bgOpacity)) : 1
+        root.setProperty('--bga', Math.round(op * 100) + '%')
+        root.setProperty('--shadow', (0.8 * op).toFixed(2))
+        root.setProperty('--bgo', op.toFixed(2))
+
+        // s.theme is what the tracker allows (Pro themes fall back to classic without Pro).
+        var theme = /^(classic|slate|wood|blood)$/.test(s.theme || '') ? s.theme : 'classic'
+        var panelCls = 'panel theme-' + theme + (op < 0.6 ? ' clear' : '')
+
+        // One widget as its own source: nothing else is drawn, the row toggles of the
+        // combined panel do not apply.
+        if (SHOW === 'recent') {
+          var only = recentBlock(s.recent)
+          stage.innerHTML = only ? '<div class="' + panelCls + ' only">' + only + '</div>' : ''
+          return
+        }
+        if (SHOW === 'maps') {
+          var maps = mapsBlock(s)
+          stage.innerHTML = maps ? '<div class="' + panelCls + ' maps">' + maps + '</div>' : ''
+          return
+        }
+        if (SHOW === 'goal') {
+          var goals = goalBlock(s)
+          stage.innerHTML = goals ? '<div class="' + panelCls + ' goals">' + goals + '</div>' : ''
+          return
+        }
+
+        var rows = L.rows || {}
+        var sess = s.session || {}
+        var cur = s.current || {}
+        var out = []
+
+        // Time in the game this session, not the wall clock since it started.
+        var played = (sess.playedMs || 0) + (s.playingSince ? Date.now() - s.playingSince : 0)
+        var dur = rows.duration !== false && played > 0 ? ' · ' + fmtDuration(played) : ''
+        // Stats of the mode being played, or of the whole session (setting).
+        // With no mode known yet there is nothing to scope to: show the session.
+        var mode = s.activeMode || ''
+        var byMode = L.scope !== 'session' && mode
+        var src = byMode ? ((sess.modes || {})[mode] || {}) : sess
+        out.push('<div class="head"><span class="title">' + (byMode ? esc(mode) : 'Сессия') + dur + '</span><i class="dot' + (s.connected ? '' : ' off') + '" title="' + (s.connected ? 'Данные из игры идут' : 'Нет данных из игры') + '"></i></div>')
+
+        var kills = num(src.kills), deaths = num(src.deaths)
+        // K/D = kills while there are no deaths yet (same rule as the tracker's session K/D).
+        var kd = (!byMode && sess.kd != null ? num(sess.kd) : (deaths ? kills / deaths : kills)).toFixed(2)
+        out.push('<div class="stats">')
+        if (rows.survival !== false) {
+          out.push(cell('', num(src.games), 'Игр'))
+          out.push(cell('good', num(src.survived), 'Выжили'))
+          out.push(cell('bad', num(src.lost), 'Не выжили'))
+        }
+        if (rows.combat !== false) {
+          out.push(cell('kd', kd, 'K/D'))
+          out.push(cell('', kills, 'Убийств'))
+          out.push(cell('bad', deaths, 'Смертей'))
+        }
+        out.push('</div>')
+
+        if (rows.modes !== false && !byMode) {
+          var modes = sess.modes || {}
+          out.push('<div class="modes">')
+          MODES.forEach(function (m) {
+            var d = modes[m[0]] || {}
+            out.push('<span>' + m[1] + ' <i>' + num(d.kills) + '/' + num(d.deaths) + '</i></span>')
+          })
+          out.push('</div>')
+        }
+
+        // Recent matches: the tracker sends it only with Pro (null otherwise).
+        if (rows.recent !== false) out.push(recentBlock(s.recent))
+
+        if (rows.current !== false && cur.inMatch) {
+          var skulls = (cur.skulls || []).filter(function (t) { return t === 'kill' || t === 'death' })
+          out.push('<div class="match"><div class="match-head"><span>Текущая катка</span><b>' + esc(cur.map || '') + (cur.mode && !byMode ? ' · ' + esc(cur.mode) : '') + '</b></div><div class="skulls">')
+          if (!skulls.length) {
+            out.push('<span class="empty">-</span>')
+          } else {
+            if (skulls.length > 16) out.push('<span class="more">+' + (skulls.length - 16) + '</span>')
+            skulls.slice(-16).forEach(function (t) {
+              out.push('<svg class="skull ' + t + '" viewBox="0 0 64 68"><use href="#skull"/></svg>')
+            })
+          }
+          out.push('</div></div>')
+        }
+
+        stage.innerHTML = '<div class="' + panelCls + '">' + out.join('') + '</div>'
+      }
+
+      function connect() {
+        var ws = new WebSocket(WS)
+        ws.onmessage = function (ev) {
+          var m
+          try { m = JSON.parse(lanMedia(ev.data)) } catch (e) { return }
+          if (m.type === 'hunt_update') render(m.state)
+        }
+        ws.onclose = function () { setTimeout(connect, 2000) }
+        ws.onerror = function () { ws.close() }
+      }
+      connect()
+      // The game-time clock has no event of its own - redraw so it keeps moving.
+      setInterval(function () { if (last) render(last) }, 30000)
+
+      if (DEMO) {
+        render({
+          connected: true,
+          activeMode: 'Bounty Hunt',
+          theme: params.get('theme') || 'classic',
+          look: {
+            position: 'top-left',
+            scope: params.get('scope') === 'session' ? 'session' : 'mode',
+            bgOpacity: params.has('bga') ? Number(params.get('bga')) : 1,
+            theme: params.get('theme') || 'classic',
+            rows: {}
+          },
+          session: {
+            startedAt: Date.now() - 95 * 60000,
+            playedMs: 95 * 60000,
+            games: 5, survived: 3, lost: 2, kills: 24, deaths: 12,
+            maps: { cemetery: 3, civilwar: 2 },
+            modes: {
+              'Bounty Hunt': { games: 3, survived: 2, lost: 1, kills: 18, deaths: 8 },
+              'Bounty Clash': { games: 2, survived: 1, lost: 1, kills: 6, deaths: 4 }
+            }
+          },
+          proActive: params.get('recent') !== '0',
+          maps: params.get('recent') === '0' ? null : [
+            { name: 'Stillwater', games: 14, survived: 9, rate: 64 },
+            { name: 'Lawson', games: 11, survived: 5, rate: 45 },
+            { name: 'DeSalle', games: 8, survived: 6, rate: 75 },
+            { name: 'Mammon', games: 3, survived: 1, rate: 33 }
+          ],
+          goals: [
+            { id: 'd1', metric: 'kills', target: 10, title: '', enabled: true, value: 7, done: false },
+            { id: 'd2', metric: 'streak', target: 3, title: 'Три выживания подряд', enabled: true, value: 3, done: true },
+            { id: 'd3', metric: 'bestKills', target: 8, title: '', enabled: true, value: 6, done: false }
+          ],
+          recent: params.get('recent') === '0' ? null : {
+            matches: [
+              { outcome: 'survived', kills: 4, deaths: 1, mapName: 'Stillwater' },
+              { outcome: 'lost', kills: 1, deaths: 2, mapName: 'Lawson' },
+              { outcome: 'survived', kills: 3, deaths: 0, mapName: 'DeSalle' },
+              { outcome: 'survived', kills: 6, deaths: 1, mapName: 'Mammon' },
+              { outcome: 'survived', kills: 2, deaths: 0, mapName: 'Stillwater' },
+              { outcome: '', kills: 1, deaths: 0, mapName: 'Lawson' },
+              { outcome: 'survived', kills: 5, deaths: 1, mapName: 'DeSalle' }
+            ],
+            streak: 4, bestStreak: 4, bestKills: 6, total: 7
+          },
+          current: { inMatch: true, map: 'Stillwater', mode: 'Bounty Hunt', skulls: ['kill', 'kill', 'death', 'kill'] }
+        })
+      }
+    })()
+  </script>
+</body>
+
+</html>
