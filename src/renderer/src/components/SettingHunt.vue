@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useStore } from 'vuex'
 import OverlayLink from './OverlayLink.vue'
+import HuntGameOverlay from './HuntGameOverlay.vue'
 import HuntGoals from './HuntGoals.vue'
 import HuntHistory from './HuntHistory.vue'
 import HuntKillStreak from './HuntKillStreak.vue'
@@ -98,6 +99,11 @@ const sdkState = computed(() => logState('events', !!s.value?.eventsPath))
       <Button size="small" severity="secondary" label="Тест" @click="send({ type: 'test' })" />
     </OverlayLink>
     <HuntWidgets :url="OBS_URL" />
+
+    <details class="hunt-group" open>
+      <summary>Окно поверх игры</summary>
+      <HuntGameOverlay />
+    </details>
 
     <details class="hunt-group" open>
       <summary>Подключение игры</summary>

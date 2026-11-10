@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, globalShortcut, ipcMain, screen, shell } from 'electron'
 import { join } from 'path'
 import { existsSync, mkdirSync } from 'fs'
 import { writeFile } from 'fs/promises'
@@ -39,6 +39,112 @@ const overlayOpen = (name: string): boolean => {
     if (c.overlay === name && c.visible !== false) open = true
   })
   return open
+}
+
+// --- Overlay window over the game -------------------------------------------
+// The same overlay page (:1040/hunt) drawn in a transparent, click-through, always-on-top
+// window, so the panel can sit over Hunt without OBS. Nothing is injected into the game: it
+// is a plain top-most window, which the game only shows in a windowed / borderless mode.
+
+type OverlaySource = 'panel' | 'recent' | 'goal' | 'maps'
+
+const OVERLAY_SOURCES: OverlaySource[] = ['panel', 'recent', 'goal', 'maps']
+const OVERLAY_HOTKEY = 'Alt+Shift+O'
+
+let overlayWindow: BrowserWindow | null = null
+
+interface OverlaySettings {
+  // Reopen over the game on the next launch.
+  visible: boolean
+  // Which of the overlay views the window draws (?show=... on the page).
+  source: OverlaySource
+}
+
+const getOverlaySettings = (): OverlaySettings => {
+  const raw = (store.get('overlayWindow') as Partial<OverlaySettings>) || {}
+  const source = OVERLAY_SOURCES.includes(raw.source as OverlaySource)
+    ? (raw.source as OverlaySource)
+    : 'panel'
+  return { visible: !!raw.visible, source }
+}
+const saveOverlaySettings = (patch: Partial<OverlaySettings>): OverlaySettings => {
+  const next = { ...getOverlaySettings(), ...patch }
+  store.set('overlayWindow', next as never)
+  return next
+}
+
+const overlayUrl = (source: OverlaySource): string =>
+  `http://localhost:${OVERLAY_PORT}/hunt${source === 'panel' ? '' : `?show=${source}`}`
+
+/** What the settings window shows: is the window open, what it draws, the hotkey. */
+const overlayWindowInfo = (): any => ({
+  open: !!overlayWindow,
+  hotkey: OVERLAY_HOTKEY,
+  ...getOverlaySettings()
+})
+
+const notifyOverlayWindow = (): void => {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  mainWindow.webContents.send('overlayWindowState', overlayWindowInfo())
+}
+
+function createOverlayWindow(): void {
+  if (overlayWindow) return
+  const { bounds } = screen.getPrimaryDisplay()
+  overlayWindow = new BrowserWindow({
+    x: bounds.x,
+    y: bounds.y,
+    width: bounds.width,
+    height: bounds.height,
+    transparent: true,
+    frame: false,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    hasShadow: false,
+    // Never take focus or the mouse: the panel is meant to be read, the game keeps the input.
+    focusable: false,
+    show: false,
+    title: 'Hunt Tracker — окно поверх игры',
+    webPreferences: { backgroundThrottling: false }
+  })
+  // Above the game (and most other windows) without stealing clicks.
+  overlayWindow.setAlwaysOnTop(true, 'screen-saver')
+  overlayWindow.setIgnoreMouseEvents(true, { forward: true })
+  overlayWindow.webContents.setWindowOpenHandler((d) => {
+    shell.openExternal(d.url)
+    return { action: 'deny' }
+  })
+  // The overlay server may still be coming up (a busy port is retried): reload until it answers.
+  overlayWindow.webContents.on('did-fail-load', () => {
+    setTimeout(() => {
+      if (overlayWindow)
+        overlayWindow.loadURL(overlayUrl(getOverlaySettings().source)).catch(() => {})
+    }, 2000)
+  })
+  overlayWindow.once('ready-to-show', () => overlayWindow?.showInactive())
+  overlayWindow.on('closed', () => {
+    overlayWindow = null
+    notifyOverlayWindow()
+  })
+  overlayWindow.loadURL(overlayUrl(getOverlaySettings().source)).catch(() => {})
+  notifyOverlayWindow()
+}
+
+function setOverlayVisible(visible: boolean): void {
+  saveOverlaySettings({ visible })
+  if (visible) createOverlayWindow()
+  else overlayWindow?.close()
+  notifyOverlayWindow()
+}
+
+function setOverlaySource(source: OverlaySource): void {
+  saveOverlaySettings({ source })
+  if (overlayWindow) overlayWindow.loadURL(overlayUrl(source)).catch(() => {})
+  notifyOverlayWindow()
 }
 
 const historyDir = join(app.getPath('userData'), 'hunt-history')
@@ -117,6 +223,26 @@ function registerIpc(): void {
   // Features are free: the settings never hide anything behind "pro".
   ipcMain.handle('alertsProActive', () => true)
 
+  // --- Overlay window over the game --------------------------------------
+  ipcMain.handle('overlayWindowGet', () => overlayWindowInfo())
+  ipcMain.on('overlayWindowAction', (_e, a: any) => {
+    if (!a || typeof a !== 'object') return
+    switch (a.type) {
+      case 'open':
+        setOverlayVisible(true)
+        break
+      case 'close':
+        setOverlayVisible(false)
+        break
+      case 'toggle':
+        setOverlayVisible(!overlayWindow)
+        break
+      case 'source':
+        if (OVERLAY_SOURCES.includes(a.value)) setOverlaySource(a.value)
+        break
+    }
+  })
+
   // --- Files & network ----------------------------------------------------
   ipcMain.handle('saveTextFile', async (_e, payload: any) => {
     const res = await dialog.showSaveDialog(mainWindow!, {
@@ -183,6 +309,11 @@ function createWindow(): void {
   })
 
   mainWindow.on('ready-to-show', () => mainWindow?.show())
+  mainWindow.on('closed', () => {
+    mainWindow = null
+    // The overlay window is not a standalone app window: it goes away with the settings.
+    overlayWindow?.close()
+  })
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
@@ -210,6 +341,13 @@ app.whenReady().then(() => {
   hunt.start()
   createWindow()
 
+  // The overlay-over-the-game window: reopen it only if the user left it on last run.
+  if (getOverlaySettings().visible) createOverlayWindow()
+  // Show/hide the overlay window from inside the game (another app may already hold it).
+  if (!globalShortcut.register(OVERLAY_HOTKEY, () => setOverlayVisible(!overlayWindow))) {
+    console.warn(`[overlay] hotkey ${OVERLAY_HOTKEY} is already taken by another app`)
+  }
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
@@ -220,6 +358,8 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
+  globalShortcut.unregisterAll()
+  overlayWindow?.destroy()
   hunt.dispose()
   server?.http.close()
 })
