@@ -1,5 +1,7 @@
 # Hunt Tracker / Трекер Hunt: Showdown
 
+[![Downloads](https://img.shields.io/github/downloads/mfreddi/hunt-tracker/total)](https://github.com/mfreddi/hunt-tracker/releases)
+
 > **English** | [Русский](#russian)
 
 ---
