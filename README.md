@@ -33,6 +33,10 @@ Real-time match statistics overlay for Hunt: Showdown. Reads the game log and th
 3. In OBS: **Add → Browser Source**, paste the URL, set the size (e.g. `280×400`), and uncheck *Shutdown source when not visible*.
 4. Play a match — kills, deaths and the rest appear on the overlay.
 
+You can also show the overlay directly over the game without OBS. Open **Overlay window over the game** in Settings and turn it on. Choose the full panel or a single widget; press **Alt+Shift+O** to show or hide it while playing. The transparent, click-through window does not take game input or inject anything into the game. Use **Windowed** or **Borderless** display mode; it is not visible in exclusive fullscreen.
+
+The interface is available in **Russian and English**. Change **Interface language** in the app header; the choice is saved and applies to the overlay pages too. On first launch, the system locale is used.
+
 ### Overlay URLs
 
 | Page | URL | Purpose |
@@ -56,6 +60,8 @@ Common query parameters: `theme` (`classic` / `slate` / `wood` / `blood`), `bga`
 - Kill-streak alerts with custom media and sound
 - Four themes (Classic, Slate, Wood, Blood)
 - Widget modes for separate OBS sources
+- Transparent, click-through overlay window over the game, with an in-game hotkey
+- Russian and English interface
 - Streaming from a second PC (OBS on one machine, the tracker on another)
 
 ### Requirements
@@ -138,6 +144,10 @@ GPL-3.0-or-later — see [LICENSE](LICENSE) and [NOTICE](NOTICE).
 3. В OBS: **Добавить → Источник «Браузер»**, вставьте URL, задайте размер (например `280×400`) и снимите галочку *«Отключать источник, когда он не виден»*.
 4. Зайдите в матч — убийства, смерти и остальное появятся на оверлее.
 
+Оверлей также можно показывать прямо поверх игры, без OBS. Откройте в настройках раздел **Окно поверх игры** и включите его. Выберите всю панель или отдельный виджет; во время игры нажимайте **Alt+Shift+O**, чтобы показать или скрыть окно. Прозрачное окно пропускает клики в игру и ничего в неё не внедряет. Выберите режим отображения **«Оконный»** или **«Оконный без рамки»** — в эксклюзивном полноэкранном режиме окно не видно.
+
+Интерфейс доступен на **русском и английском**. Язык переключается в шапке приложения, настройка сохраняется и применяется к страницам оверлея. При первом запуске используется язык системы.
+
 ### URL оверлеев
 
 | Страница | URL | Назначение |
@@ -161,6 +171,8 @@ GPL-3.0-or-later — see [LICENSE](LICENSE) and [NOTICE](NOTICE).
 - Алерты серий убийств с медиа и звуком
 - Четыре темы (Classic, Slate, Wood, Blood)
 - Виджет-режимы для отдельных источников OBS
+- Прозрачное окно оверлея поверх игры, сквозное для кликов, с горячей клавишей
+- Интерфейс на русском и английском языках
 - Стрим с двух ПК (OBS на одном, трекер на другом)
 
 ### Требования

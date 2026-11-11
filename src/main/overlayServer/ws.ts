@@ -6,12 +6,14 @@ import type { HuntTracker } from '../HuntTracker'
 
 export interface OverlayWsDeps {
   hunt: HuntTracker
+  lang?: () => string
   /** The /killstreak overlay reports whether an alert is on screen (so the app can queue the next one). */
   alertsStatus?: (msg: any) => void
 }
 
 /** The state a just-connected overlay gets, one message at a time. */
 export function* replayOnConnect(d: OverlayWsDeps): Generator<any, void, undefined> {
+  yield { type: 'lang', lang: d.lang?.() ?? 'ru' }
   yield { type: 'hunt_update', state: d.hunt.get() }
 }
 

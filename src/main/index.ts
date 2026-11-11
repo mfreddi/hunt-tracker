@@ -8,6 +8,7 @@ import Store from 'electron-store'
 import { HuntTracker } from './HuntTracker'
 import { KillStreakAlerts } from './hunt/KillStreakAlerts'
 import { startOverlayServer, type OverlayServer } from './overlayServer/server'
+import { DEFAULT_LANG, isLang, langFromLocale, type Lang } from '@shared/i18n'
 
 // The app: one window with the settings, plus the overlay server on :1040 that feeds the OBS browser
 // sources and the app's own live state (the window listens on the same websocket).
@@ -19,6 +20,11 @@ const resource = (...parts: string[]): string =>
   is.dev ? join(__dirname, '../../resources', ...parts) : join(process.resourcesPath, ...parts)
 
 const store = new Store({ name: 'hunt-tracker' })
+
+const getLang = (): Lang => {
+  const saved = store.get('lang')
+  return isLang(saved) ? saved : langFromLocale(app.getLocale()) || DEFAULT_LANG
+}
 
 let mainWindow: BrowserWindow | null = null
 let server: OverlayServer | null = null
@@ -178,6 +184,12 @@ const hunt = new HuntTracker(
 )
 
 function registerIpc(): void {
+  ipcMain.handle('getLang', getLang)
+  ipcMain.on('setLang', (_e, value: unknown) => {
+    if (!isLang(value)) return
+    store.set('lang', value)
+    broadcast({ type: 'lang', lang: value })
+  })
   // --- Hunt state ---------------------------------------------------------
   ipcMain.handle('getHunt', () => hunt.get())
   ipcMain.handle('getHuntHistory', () => hunt.getHistory())
@@ -335,7 +347,7 @@ app.whenReady().then(() => {
   server = startOverlayServer({
     port: OVERLAY_PORT,
     routes: { resource, mediaDir },
-    ws: { hunt }
+    ws: { hunt, lang: getLang }
   })
 
   hunt.start()

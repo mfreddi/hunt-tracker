@@ -4,7 +4,7 @@ import { defineConfig } from 'vitest/config'
 // dev machine (the Hunt tracker needs Windows + the game running).
 export default defineConfig({
   test: {
-    include: ['src/main/**/*.test.ts'],
+    include: ['src/**/*.test.ts'],
     environment: 'node'
   }
 })

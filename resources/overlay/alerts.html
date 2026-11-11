@@ -149,6 +149,15 @@ function lanMedia(text) {
   var ANIMS = ['pop', 'slide-up', 'slide-down', 'slide-left', 'slide-right', 'bounce', 'zoom', 'shake', 'fade', 'none']
 
   var stage = document.getElementById('stage')
+  var unlockHint = document.getElementById('unlock')
+  function setLang(lang) {
+    var en = lang === 'en'
+    document.documentElement.lang = en ? 'en' : 'ru'
+    document.title = en ? 'Hunt Tracker - Alerts' : 'Hunt Tracker - Алерты'
+    unlockHint.textContent = en
+      ? '🔇 Click the page to enable sound (not needed in OBS)'
+      : '🔇 Кликни по странице, чтобы включить звук (в OBS это не нужно)'
+  }
   var snd = document.getElementById('snd')
   var voiceEl = document.getElementById('voice')
   var queue = []
@@ -171,7 +180,6 @@ function lanMedia(text) {
     return actx
   }
   // A normal browser tab only allows sound after a click; OBS browser sources do not need this.
-  var unlockHint = document.getElementById('unlock')
   // a browser tab refused sound (no click on the page yet): tell the streamer, the next alerts play once they click
   function blocked(err) {
     if (err && err.name === 'NotAllowedError') unlockHint.style.display = 'block'
@@ -477,6 +485,7 @@ function lanMedia(text) {
     ws.onmessage = function (ev) {
       var m
       try { m = JSON.parse(lanMedia(ev.data)) } catch (e) { return }
+      if (m.type === 'lang') setLang(m.lang)
       if (STREAK) { if (m.type === 'streak_alert') onAlert(m.payload) }
       else if (m.type === 'alert_box') onAlert(m.payload)
       else if (m.type === 'alert_box_control') onControl(m)

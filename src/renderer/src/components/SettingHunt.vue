@@ -8,8 +8,10 @@ import HuntHistory from './HuntHistory.vue'
 import HuntKillStreak from './HuntKillStreak.vue'
 import HuntLookSettings from './HuntLookSettings.vue'
 import HuntWidgets from './HuntWidgets.vue'
+import { useI18n } from '../i18n'
 
 const store = useStore()
+const { t } = useI18n()
 const s = computed<any>(() => store.state.hunt || null)
 const sess = computed<any>(() => s.value?.session || {})
 const cur = computed<any>(() => s.value?.current || {})
@@ -61,33 +63,39 @@ const played = computed(() => {
   return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`
 })
 
-const gapOptions = [
-  { value: 3, label: 'после 3 ч без игры' },
-  { value: 6, label: 'после 6 ч без игры' },
-  { value: 12, label: 'после 12 ч без игры' },
-  { value: 0, label: 'выключено — только вручную' }
-]
+const gapOptions = computed(() => [
+  { value: 3, label: t('hunt.session.gap.3') },
+  { value: 6, label: t('hunt.session.gap.6') },
+  { value: 12, label: t('hunt.session.gap.12') },
+  { value: 0, label: t('hunt.session.gap.off') }
+])
 
-const latencyOptions = [
-  { value: 'normal', label: 'Обычная - 3,5 с, находит размены (рекомендуется)' },
-  { value: 'fast', label: 'Быстро - 300 мс, возможны ложные срабатывания' }
-]
+const latencyOptions = computed(() => [
+  { value: 'normal', label: t('hunt.conn.speed.normal') },
+  { value: 'fast', label: t('hunt.conn.speed.fast') }
+])
 
 const sdkFailed = computed(() => s.value?.sdk?.state === 'failed')
 
 // Live state of one log: where the path is known and whether it is actually being read.
 const logState = (kind: 'game' | 'events', hasPath: boolean): { text: string; cls: string } => {
-  if (!hasPath) return { text: 'не найден', cls: 'bad' }
+  if (!hasPath) return { text: t('hunt.conn.status.notFound'), cls: 'bad' }
   const st = s.value?.statuses?.[kind]
   // The events are read, but the game never connected to NVIDIA Highlights when it
   // started: nothing will ever arrive, so "читается" would be a lie.
-  if (kind === 'events' && sdkFailed.value) return { text: 'нет связи с NVIDIA', cls: 'bad' }
+  if (kind === 'events' && sdkFailed.value) return { text: t('hunt.conn.status.noNvidia'), cls: 'bad' }
   if (st === 'online') {
     const n = Number(s.value?.sdk?.received || 0)
-    return { text: n > 0 ? `читается · моментов: ${n}` : 'читается', cls: 'ok' }
+    return {
+      text: n > 0 ? t('hunt.conn.status.readingMoments', { n }) : t('hunt.conn.status.reading'),
+      cls: 'ok'
+    }
   }
-  if (st === 'missing') return { text: 'файл не появился', cls: 'bad' }
-  return { text: s.value?.connected ? 'подключаемся' : 'ждём игру', cls: '' }
+  if (st === 'missing') return { text: t('hunt.conn.status.fileMissing'), cls: 'bad' }
+  return {
+    text: s.value?.connected ? t('hunt.conn.status.connecting') : t('hunt.conn.status.waitingGame'),
+    cls: ''
+  }
 }
 const gameLogState = computed(() => logState('game', !!s.value?.gamePath))
 const sdkState = computed(() => logState('events', !!s.value?.eventsPath))
@@ -96,61 +104,52 @@ const sdkState = computed(() => logState('events', !!s.value?.eventsPath))
 <template>
   <div v-if="s" class="hunt">
     <OverlayLink :url="OBS_URL">
-      <Button size="small" severity="secondary" label="Тест" @click="send({ type: 'test' })" />
+      <Button size="small" severity="secondary" :label="t('common.test')" @click="send({ type: 'test' })" />
     </OverlayLink>
     <HuntWidgets :url="OBS_URL" />
 
     <details class="hunt-group" open>
-      <summary>Окно поверх игры</summary>
+      <summary>{{ t('hunt.group.gameWindow') }}</summary>
       <HuntGameOverlay />
     </details>
 
     <details class="hunt-group" open>
-      <summary>Подключение игры</summary>
-      <p class="hunt-hint">
-        Hunt Tracker собирает данные Hunt Showdown прямо на этом компьютере. Игра должна быть
-        установлена, а Highlights включены в игре и в приложении NVIDIA. Сами моменты сохранять не
-        нужно - достаточно, чтобы функция была включена.
-      </p>
+      <summary>{{ t('hunt.group.connection') }}</summary>
+      <p class="hunt-hint">{{ t('hunt.conn.intro') }}</p>
       <div class="hunt-statusrow">
         <span
-          v-tooltip.top="s.connected ? 'Данные из игры приходят' : 'Нет данных из игры'"
+          v-tooltip.top="s.connected ? t('hunt.conn.dataFromGameTip') : t('hunt.conn.noDataTip')"
           class="hunt-dot"
           :class="{ ok: s.connected }"
         ></span>
-        <span v-if="s.enabled" class="hunt-hint">трекер включён</span>
-        <span v-else class="hunt-hint">трекер выключен</span>
+        <span v-if="s.enabled" class="hunt-hint">{{ t('hunt.conn.trackerOn') }}</span>
+        <span v-else class="hunt-hint">{{ t('hunt.conn.trackerOff') }}</span>
       </div>
       <div class="hunt-row">
         <ToggleSwitch
           :model-value="s.enabled"
           @update:model-value="(v) => send({ type: 'enabled', value: v })"
         />
-        <span class="hunt-label">Включить трекер</span>
+        <span class="hunt-label">{{ t('hunt.conn.enableTracker') }}</span>
       </div>
       <div class="hunt-paths">
         <div class="hunt-path-item">
-          <span class="hunt-path-label">Данные игры</span>
+          <span class="hunt-path-label">{{ t('hunt.conn.gameData') }}</span>
           <span class="hunt-path-status" :class="gameLogState.cls">{{ gameLogState.text }}</span>
         </div>
         <div class="hunt-path-item">
-          <span class="hunt-path-label">События боя</span>
+          <span class="hunt-path-label">{{ t('hunt.conn.combatEvents') }}</span>
           <span class="hunt-path-status" :class="sdkState.cls">{{ sdkState.text }}</span>
         </div>
       </div>
       <div v-if="sdkFailed" class="hunt-warn">
-        <b>Игра не подключилась к NVIDIA Highlights при запуске</b>, поэтому убийства и смерти
-        сейчас не считаются (игры и исходы считаются). Обычно так бывает, когда игру запускают, пока
-        приложение NVIDIA ещё не загрузилось. Закрой игру, дождись, пока приложение NVIDIA полностью
-        запустится, и запусти игру заново. Если не помогает — перезапусти приложение NVIDIA и
-        проверь, что в нём включены оверлей и Highlights.
+        <b>{{ t('hunt.conn.sdkFailedTitle') }}</b>{{ t('hunt.conn.sdkFailed') }}
       </div>
       <p v-if="s.statuses?.events === 'missing' && s.eventsPath" class="hunt-hint">
-        События боя не появились: включи Highlights в игре и в приложении NVIDIA (сами моменты
-        сохранять не нужно), иначе убийства не считаются.
+        {{ t('hunt.conn.eventsMissing') }}
       </p>
       <label class="hunt-field">
-        <span>Скорость учёта убийств</span>
+        <span>{{ t('hunt.conn.speedLabel') }}</span>
         <Select
           :model-value="s.latencyMode || 'normal'"
           :options="latencyOptions"
@@ -160,98 +159,92 @@ const sdkState = computed(() => logState('events', !!s.value?.eventsPath))
         />
       </label>
       <p class="hunt-hint">
-        Убийство и смерть сначала выглядят одинаково, отличить их можно только по данным игры.
-        Обычная скорость надёжнее и находит размены, поэтому рекомендуется. В быстром режиме, если
-        подтверждение смерти запоздает, смерть может засчитаться как убийство — бывают ложные
-        срабатывания.
+        {{ t('hunt.conn.speedHint') }}
       </p>
       <label class="hunt-field">
-        <span>Путь к данным игры (game.log)</span>
+        <span>{{ t('hunt.conn.gamePathLabel') }}</span>
         <InputText
           :model-value="s.gamePath || ''"
-          placeholder="Например, …\Hunt Showdown 1896\game.log"
+          :placeholder="t('hunt.conn.gamePathPlaceholder')"
           @change="(e) => setPath('gamePath', (e.target as HTMLInputElement).value)"
         />
       </label>
       <label class="hunt-field">
-        <span>Путь к событиям боя (NVIDIA Highlights)</span>
+        <span>{{ t('hunt.conn.eventsPathLabel') }}</span>
         <InputText
           :model-value="s.eventsPath || ''"
-          placeholder="Папка с событиями боя"
+          :placeholder="t('hunt.conn.eventsPathPlaceholder')"
           @change="(e) => setPath('eventsPath', (e.target as HTMLInputElement).value)"
         />
       </label>
       <Button
         size="small"
         icon="pi pi-search"
-        label="Определить автоматически"
+        :label="t('hunt.conn.detect')"
         :loading="detecting"
         @click="detectPaths"
       />
-      <div v-if="detected === 'error'" class="hunt-detect bad">Не удалось выполнить поиск.</div>
+      <div v-if="detected === 'error'" class="hunt-detect bad">{{ t('hunt.conn.detectFailed') }}</div>
       <div v-else-if="detected" class="hunt-detect">
         <div :class="detected.game ? 'ok' : 'bad'">
           {{
             detected.game
-              ? '✓ Игра найдена'
-              : '✗ Игра не найдена: ищем Hunt: Showdown 1896 в библиотеках Steam'
+              ? t('hunt.conn.detectGameOk')
+              : t('hunt.conn.detectGameBad')
           }}
         </div>
         <div :class="detected.events ? 'ok' : 'bad'">
           {{
             detected.events
-              ? '✓ События боя найдены'
-              : '✗ События боя не найдены: включи Highlights в игре и в приложении NVIDIA и сыграй катку'
+              ? t('hunt.conn.detectEventsOk')
+              : t('hunt.conn.detectEventsBad')
           }}
         </div>
       </div>
     </details>
 
     <details class="hunt-group" open>
-      <summary>Сессия</summary>
+      <summary>{{ t('hunt.group.session') }}</summary>
       <div class="hunt-stats">
         <div>
-          <span>В игре</span><b>{{ played }}</b>
+          <span>{{ t('hunt.session.inGame') }}</span><b>{{ played }}</b>
         </div>
         <div>
-          <span>Игр</span><b>{{ sess.games || 0 }}</b>
+          <span>{{ t('hunt.session.games') }}</span><b>{{ sess.games || 0 }}</b>
         </div>
         <div>
-          <span>Выжили</span><b class="green">{{ sess.survived || 0 }}</b>
+          <span>{{ t('hunt.session.survived') }}</span><b class="green">{{ sess.survived || 0 }}</b>
         </div>
         <div>
-          <span>Не выжили</span><b class="red">{{ sess.lost || 0 }}</b>
+          <span>{{ t('hunt.session.lost') }}</span><b class="red">{{ sess.lost || 0 }}</b>
         </div>
         <div>
           <span>K / D</span><b>{{ sess.kills || 0 }}/{{ sess.deaths || 0 }}</b
           ><em>K/D {{ kd }}</em>
         </div>
         <div v-if="sess.trades">
-          <span>Размены</span><b>{{ sess.trades }}</b>
+          <span>{{ t('hunt.session.trades') }}</span><b>{{ sess.trades }}</b>
         </div>
         <div
           v-if="sess.unclassified"
-          v-tooltip.top="'Не удалось отличить убийство от смерти: данные игры были недоступны'"
+          v-tooltip.top="t('hunt.session.unclassifiedTip')"
         >
-          <span>Не определено</span><b class="red">{{ sess.unclassified }}</b>
+          <span>{{ t('hunt.session.unclassified') }}</span><b class="red">{{ sess.unclassified }}</b>
         </div>
       </div>
       <div v-if="cur.inMatch" class="hunt-current">
-        <span class="hunt-curlabel">Текущая катка:</span>
+        <span class="hunt-curlabel">{{ t('hunt.session.currentMatch') }}</span>
         <span>{{ cur.map }} - {{ cur.mode }}</span>
         <span v-if="cur.skulls && cur.skulls.length > 0">
-          черепов: {{ cur.skulls.filter((x: string) => x === 'kill').length }}/{{
-            cur.skulls.length
-          }}
+          {{ t('hunt.session.skulls', { kills: cur.skulls.filter((x: string) => x === 'kill').length, total: cur.skulls.length }) }}
         </span>
       </div>
       <p class="hunt-hint">
-        Считаются все режимы кроме Tutorial и Shooting Range. Время в игре идёт, только пока
-        запущена игра.
+        {{ t('hunt.session.hint') }}
       </p>
       <div class="hunt-row">
         <label class="hunt-field">
-          <span>Новая сессия автоматически</span>
+          <span>{{ t('hunt.session.newAuto') }}</span>
           <Select
             :model-value="s.sessionGapHours ?? 3"
             :options="gapOptions"
@@ -264,29 +257,29 @@ const sdkState = computed(() => logState('events', !!s.value?.eventsPath))
           size="small"
           severity="secondary"
           icon="pi pi-refresh"
-          label="Новая сессия"
+          :label="t('hunt.session.newBtn')"
           @click="send({ type: 'reset' })"
         />
       </div>
     </details>
 
     <details class="hunt-group" :open="(s.goals || []).length > 0">
-      <summary>Челлендж-цели</summary>
+      <summary>{{ t('hunt.group.goals') }}</summary>
       <HuntGoals />
     </details>
 
     <details class="hunt-group">
-      <summary>Серия убийств</summary>
+      <summary>{{ t('hunt.group.streak') }}</summary>
       <HuntKillStreak />
     </details>
 
     <details class="hunt-group">
-      <summary>История каток</summary>
+      <summary>{{ t('hunt.group.history') }}</summary>
       <HuntHistory />
     </details>
 
     <details class="hunt-group">
-      <summary>Вид оверлея</summary>
+      <summary>{{ t('hunt.group.look') }}</summary>
       <HuntLookSettings />
     </details>
   </div>

@@ -5,32 +5,31 @@
 import { computed } from 'vue'
 import { useStore } from 'vuex'
 import OverlayLink from './OverlayLink.vue'
+import { useI18n } from '../i18n'
 
 const props = defineProps<{ url: string }>()
 
 const store = useStore()
 const s = computed<any>(() => store.state.hunt || null)
+const { t } = useI18n()
 
-const periodOptions = [
-  { value: 'all', label: 'за всё время (вся история каток)' },
-  { value: 'session', label: 'за текущий эфир (сессию)' }
-]
+const periodOptions = computed(() => [
+  { value: 'all', label: t('hunt.widgets.periodAll') },
+  { value: 'session', label: t('hunt.widgets.periodSession') }
+])
 const patch = (values: any): void =>
   window.electron.ipcRenderer.send('huntAction', { type: 'patch', values })
 </script>
 
 <template>
   <details v-if="s" class="widgets">
-    <summary>Отдельные виджеты для OBS</summary>
-    <p class="w-hint">
-      Каждый виджет добавляется в OBS отдельным источником «Браузер» — его можно поставить и
-      растянуть в любом месте экрана. Тема, прозрачность и масштаб общие с панелью.
-    </p>
-    <OverlayLink :url="props.url + '?show=recent'" label="Последние катки, серия и рекорд" />
-    <OverlayLink :url="props.url + '?show=goal'" label="Челлендж-цели" />
-    <OverlayLink :url="props.url + '?show=maps'" label="Винрейт по картам" />
+    <summary>{{ t('hunt.widgets.summary') }}</summary>
+    <p class="w-hint">{{ t('hunt.widgets.hint') }}</p>
+    <OverlayLink :url="props.url + '?show=recent'" :label="t('hunt.widgets.linkRecent')" />
+    <OverlayLink :url="props.url + '?show=goal'" :label="t('hunt.widgets.linkGoal')" />
+    <OverlayLink :url="props.url + '?show=maps'" :label="t('hunt.widgets.linkMaps')" />
     <label class="w-field">
-      <span>Винрейт по картам считать</span>
+      <span>{{ t('hunt.widgets.periodLabel') }}</span>
       <Select
         :model-value="s.look.mapsPeriod || 'all'"
         :options="periodOptions"
@@ -40,8 +39,7 @@ const patch = (values: any): void =>
       />
     </label>
     <p class="w-hint">
-      Винрейт — доля выжитых каток на карте; катки без результата (игру закрыли посреди катки) не
-      считаются. Режим берётся тот же, что и у панели.
+      {{ t('hunt.widgets.mapsHint') }}
     </p>
   </details>
 </template>

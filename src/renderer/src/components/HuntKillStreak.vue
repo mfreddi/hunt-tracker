@@ -8,6 +8,7 @@ import HuntDeathAlert from './HuntDeathAlert.vue'
 import AlertPreview from './alerts/AlertPreview.vue'
 import { POSITION_OPTIONS } from './alerts/alertOptions'
 import type { StreakRule, StreakState } from '../types/huntStreak'
+import { useI18n } from '../i18n'
 
 // "Серия убийств": a big title with a sound on the screen when the kills of a match reach the number of a rule
 // ("Доминатор" at 5). Shown on its own overlay (/killstreak). The rules are edited on a copy and sent
@@ -15,6 +16,8 @@ import type { StreakRule, StreakState } from '../types/huntStreak'
 const ipc = window.electron.ipcRenderer
 const toast = useToast()
 const { upload } = useMediaUpload()
+const { t } = useI18n()
+const positionOptions = computed(() => POSITION_OPTIONS.map((o) => ({ value: o.value, label: t(o.key) })))
 
 const state = reactive<StreakState | Record<string, never>>({}) as StreakState
 const ready = ref(false)
@@ -51,8 +54,8 @@ const commit = async (): Promise<void> => {
   } catch {
     toast.add({
       severity: 'error',
-      summary: 'Серия убийств',
-      detail: 'Не удалось сохранить',
+      summary: t('hunt.ks.toastTitle'),
+      detail: t('hunt.ks.saveFailed'),
       life: 4000
     })
   } finally {
@@ -76,7 +79,7 @@ const addRule = (): void => {
   state.rules.push({
     id,
     kills: Math.min(50, top + 2),
-    title: 'Новая серия',
+    title: t('hunt.ks.newRule'),
     showText: true,
     color: COLORS[state.rules.length % COLORS.length],
     mediaUrl: '',
@@ -111,9 +114,9 @@ const test = async (rule: StreakRule): Promise<void> => {
   if (r === 'ok') return
   const detail =
     r === 'no-overlay'
-      ? 'Источник «Серия убийств» не открыт в OBS (ссылка выше), показывать негде'
-      : 'Сначала сохрани правило'
-  toast.add({ severity: 'warn', summary: 'Серия убийств', detail, life: 5000 })
+      ? t('hunt.ks.testNoOverlay')
+      : t('hunt.ks.testSaveFirst')
+  toast.add({ severity: 'warn', summary: t('hunt.ks.toastTitle'), detail, life: 5000 })
 }
 
 const current = computed(() => state.rules.find((r) => r.id === selected.value) ?? null)
@@ -122,30 +125,27 @@ const current = computed(() => state.rules.find((r) => r.id === selected.value) 
 <template>
   <div v-if="ready" class="ks">
     <p class="ks-hint">
-      Крупная надпись и звук на экране, когда число убийств в матче достигает числа правила
-      (например, «Доминатор» на пятом). Показывается в своём источнике в OBS (ссылка ниже), по
-      одному разу за матч, отдельно от алертов донатов. Число 1 — первое убийство в матче («Первая
-      кровь»).
+      {{ t('hunt.ks.hint') }}
     </p>
-    <OverlayLink url="http://localhost:1040/killstreak" label="Ссылка для OBS (серия убийств)" />
+    <OverlayLink url="http://localhost:1040/killstreak" :label="t('hunt.ks.linkLabel')" />
     <label class="ks-line">
       <ToggleSwitch v-model="state.enabled" @change="commit" />
-      Включить серию убийств
+      {{ t('hunt.ks.enable') }}
     </label>
 
     <div class="ks-main">
       <div class="ks-rules">
         <div class="ks-head">
-          <span class="font-semibold">Правила ({{ state.rules.length }})</span>
+          <span class="font-semibold">{{ t('hunt.ks.rules', { n: state.rules.length }) }}</span>
           <Button
             icon="pi pi-plus"
-            label="Добавить"
+            :label="t('hunt.ks.add')"
             size="small"
             :disabled="state.rules.length >= 12"
             @click="addRule"
           />
         </div>
-        <p v-if="!state.rules.length" class="ks-hint">Правил нет: ничего показываться не будет.</p>
+        <p v-if="!state.rules.length" class="ks-hint">{{ t('hunt.ks.noRules') }}</p>
         <div
           v-for="(r, i) in state.rules"
           :key="r.id"
@@ -154,36 +154,36 @@ const current = computed(() => state.rules.find((r) => r.id === selected.value) 
           @click="selected = r.id"
         >
           <label class="ks-f ks-num">
-            <span>Убийств</span>
+            <span>{{ t('hunt.ks.f.kills') }}</span>
             <InputNumber v-model="r.kills" :min="1" :max="50" size="small" @blur="afterBlur" />
           </label>
           <div class="ks-f ks-fit">
-            <span>Текст</span>
+            <span>{{ t('hunt.ks.f.text') }}</span>
             <div class="ks-file">
               <ToggleSwitch
                 v-model="r.showText"
-                title="Показывать надпись (выключить: только картинка)"
+                :title="t('hunt.ks.tipShowText')"
                 @change="commit"
               />
             </div>
           </div>
           <label class="ks-f ks-title">
-            <span>Надпись</span>
+            <span>{{ t('hunt.ks.f.title') }}</span>
             <InputText v-model="r.title" size="small" :disabled="!r.showText" @change="commit" />
           </label>
           <label class="ks-f ks-fit">
-            <span>Цвет</span>
+            <span>{{ t('hunt.ks.f.color') }}</span>
             <input v-model="r.color" type="color" class="ks-color" @change="commit" />
           </label>
           <div class="ks-f ks-fit">
-            <span>Картинка</span>
+            <span>{{ t('hunt.ks.f.image') }}</span>
             <div class="ks-file">
               <FileUpload
                 mode="basic"
                 accept="image/*,video/mp4,video/webm"
                 auto
                 :max-file-size="52428800"
-                :title="r.mediaUrl ? 'Заменить картинку' : 'Выбрать картинку, гифку или видео'"
+                :title="r.mediaUrl ? t('hunt.ks.tipReplaceImage') : t('hunt.ks.tipChooseImage')"
                 choose-icon="pi pi-image"
                 custom-upload
                 @uploader="(e: any) => pick(e, r, 'mediaUrl')"
@@ -194,20 +194,20 @@ const current = computed(() => state.rules.find((r) => r.id === selected.value) 
                 size="small"
                 text
                 severity="secondary"
-                title="Убрать картинку"
+                :title="t('hunt.ks.tipRemoveImage')"
                 @click="((r.mediaUrl = ''), commit())"
               />
             </div>
           </div>
           <div class="ks-f ks-fit">
-            <span>Звук</span>
+            <span>{{ t('hunt.ks.f.sound') }}</span>
             <div class="ks-file">
               <FileUpload
                 mode="basic"
                 accept="audio/*"
                 auto
                 :max-file-size="8388608"
-                :title="r.soundUrl ? 'Заменить звук' : 'Свой звук (без него играет фанфара)'"
+                :title="r.soundUrl ? t('hunt.ks.tipReplaceSound') : t('hunt.ks.tipOwnSound')"
                 choose-icon="pi pi-volume-up"
                 custom-upload
                 @uploader="(e: any) => pick(e, r, 'soundUrl')"
@@ -218,7 +218,7 @@ const current = computed(() => state.rules.find((r) => r.id === selected.value) 
                 size="small"
                 text
                 severity="secondary"
-                title="Убрать звук: останется встроенная фанфара"
+                :title="t('hunt.ks.tipRemoveSound')"
                 @click="((r.soundUrl = ''), commit())"
               />
             </div>
@@ -226,13 +226,13 @@ const current = computed(() => state.rules.find((r) => r.id === selected.value) 
           <div class="ks-f ks-fit ks-actions">
             <span>&nbsp;</span>
             <div class="ks-file">
-              <ToggleSwitch v-model="r.enabled" title="Правило включено" @change="commit" />
+              <ToggleSwitch v-model="r.enabled" :title="t('hunt.ks.tipRuleEnabled')" @change="commit" />
               <Button
                 icon="pi pi-send"
                 size="small"
                 text
                 severity="secondary"
-                title="Показать на стриме"
+                :title="t('hunt.ks.tipShowOnStream')"
                 @click.stop="test(r)"
               />
               <Button
@@ -240,32 +240,28 @@ const current = computed(() => state.rules.find((r) => r.id === selected.value) 
                 size="small"
                 text
                 severity="danger"
-                title="Удалить"
+                :title="t('hunt.ks.tipDelete')"
                 @click.stop="removeRule(i)"
               />
             </div>
           </div>
           <small v-if="!r.showText && !r.mediaUrl" class="ks-warn ks-nothing">
-            Текст выключен и картинки нет: на экране ничего не появится{{
-              r.soundUrl ? ', будет только звук' : ''
-            }}.
+            {{ t('hunt.ks.nothing', { extra: r.soundUrl ? t('hunt.ks.nothingSound') : '' }) }}
           </small>
         </div>
-        <small class="ks-hint"
-          >Без своего звука играет встроенная фанфара: чем выше правило, тем она длиннее.</small
-        >
+        <small class="ks-hint">{{ t('hunt.ks.chimeHint') }}</small>
 
         <div class="ks-opts">
           <div class="ks-fontrow">
             <FontPicker
               v-model="state.font"
               class="ks-fontpick"
-              label="Шрифт надписей"
+              :label="t('hunt.ks.font')"
               @update:model-value="commit"
             />
           </div>
           <label class="ks-f">
-            <span>Показывать, сек</span>
+            <span>{{ t('hunt.ks.duration') }}</span>
             <InputNumber
               v-model="state.duration"
               :min="2"
@@ -275,10 +271,10 @@ const current = computed(() => state.rules.find((r) => r.id === selected.value) 
             />
           </label>
           <label class="ks-f ks-wide">
-            <span>Положение</span>
+            <span>{{ t('hunt.ks.position') }}</span>
             <Select
               v-model="state.position"
-              :options="POSITION_OPTIONS"
+              :options="positionOptions"
               option-label="label"
               option-value="value"
               size="small"
@@ -286,7 +282,7 @@ const current = computed(() => state.rules.find((r) => r.id === selected.value) 
             />
           </label>
           <label class="ks-f">
-            <span>Ширина картинки, %</span>
+            <span>{{ t('hunt.ks.width') }}</span>
             <InputNumber
               v-model="state.widthPct"
               :min="5"
@@ -296,7 +292,7 @@ const current = computed(() => state.rules.find((r) => r.id === selected.value) 
             />
           </label>
           <label class="ks-f">
-            <span>Громкость, %</span>
+            <span>{{ t('hunt.ks.volume') }}</span>
             <InputNumber
               v-model="state.volume"
               :min="0"

@@ -651,6 +651,17 @@
 
       var stage = document.getElementById('stage')
       var root = document.documentElement.style
+      var LANG = 'ru'
+      var EN = {
+        recent: 'Recent matches', streak: 'Streak', best: 'Best', survived: 'Survived',
+        died: 'Died', noResult: 'No result', periodSession: 'this stream', periodAll: 'all time',
+        maps: 'Win rate by map', mapsNote: 'survived / played', killsGoal: 'Kills this stream',
+        survivedGoal: 'Survivals this stream', gamesGoal: 'Matches this stream',
+        streakGoal: 'Survivals in a row', bestGoal: 'Kills in one match', session: 'Session',
+        dataOn: 'Game data is coming in', dataOff: 'No data from the game', games: 'Games',
+        kills: 'Kills', deaths: 'Deaths', current: 'Current match'
+      }
+      function tr(key, ru) { return LANG === 'en' ? (EN[key] || ru) : ru }
 
       var MODES = [
         ['Bounty Hunt', 'Hunt'],
@@ -680,10 +691,10 @@
       // Recent matches (the tracker sends it only with Pro, null otherwise).
       function recentBlock(rc) {
         if (!rc || !rc.matches || !rc.matches.length) return ''
-        var h = '<div class="recent"><div class="recent-head"><span>Последние катки</span><b>Серия ' + num(rc.streak) + ' · Рекорд ' + num(rc.bestKills) + '</b></div><div class="chips">'
+        var h = '<div class="recent"><div class="recent-head"><span>' + tr('recent', 'Последние катки') + '</span><b>' + tr('streak', 'Серия') + ' ' + num(rc.streak) + ' · ' + tr('best', 'Рекорд') + ' ' + num(rc.bestKills) + '</b></div><div class="chips">'
         rc.matches.forEach(function (m) {
           var cls = m.outcome === 'survived' ? 'won' : m.outcome === 'lost' ? 'lost' : ''
-          var tip = (m.outcome === 'survived' ? 'Выжил' : m.outcome === 'lost' ? 'Не выжил' : 'Без результата') + ' · ' + esc(m.mapName || '') + ' · ' + num(m.kills) + '/' + num(m.deaths)
+          var tip = (m.outcome === 'survived' ? tr('survived', 'Выжил') : m.outcome === 'lost' ? tr('died', 'Не выжил') : tr('noResult', 'Без результата')) + ' · ' + esc(m.mapName || '') + ' · ' + num(m.kills) + '/' + num(m.deaths)
           h += '<span class="chip ' + cls + '" title="' + tip + '">' + num(m.kills) + '</span>'
         })
         return h + '</div></div>'
@@ -693,12 +704,12 @@
       function mapsBlock(s) {
         var rows = s.maps
         if (!rows || !rows.length) return ''
-        var period = (s.look && s.look.mapsPeriod) === 'session' ? 'за эфир' : 'за всё время'
-        return '<div class="maps-title">Винрейт по картам</div>' + rows.map(function (m) {
+        var period = (s.look && s.look.mapsPeriod) === 'session' ? tr('periodSession', 'за эфир') : tr('periodAll', 'за всё время')
+        return '<div class="maps-title">' + tr('maps', 'Винрейт по картам') + '</div>' + rows.map(function (m) {
           var rate = Math.max(0, Math.min(100, num(m.rate)))
           var tone = rate >= 60 ? ' good' : rate < 40 ? ' bad' : ''
           return '<div class="map-row' + tone + '"><div class="map-fill" style="width:' + rate + '%"></div><span>' + esc(m.name) + '</span><b>' + rate + '%<i>' + num(m.survived) + '/' + num(m.games) + '</i></b></div>'
-        }).join('') + '<div class="maps-note">выжил / сыграно · ' + period + '</div>'
+        }).join('') + '<div class="maps-note">' + tr('mapsNote', 'выжил / сыграно') + ' · ' + period + '</div>'
       }
 
       // Challenge goals (Pro): the settings keep the whole list, only enabled ones are drawn.
@@ -713,11 +724,11 @@
         }).join('')
       }
       var GOAL_LABELS = {
-        kills: 'Убийств за эфир',
-        survived: 'Выживаний за эфир',
-        games: 'Каток за эфир',
-        streak: 'Выживаний подряд',
-        bestKills: 'Убийств за одну катку'
+        kills: tr('killsGoal', 'Убийств за эфир'),
+        survived: tr('survivedGoal', 'Выживаний за эфир'),
+        games: tr('gamesGoal', 'Каток за эфир'),
+        streak: tr('streakGoal', 'Выживаний подряд'),
+        bestKills: tr('bestGoal', 'Убийств за одну катку')
       }
 
       var last = null
@@ -770,21 +781,21 @@
         var mode = s.activeMode || ''
         var byMode = L.scope !== 'session' && mode
         var src = byMode ? ((sess.modes || {})[mode] || {}) : sess
-        out.push('<div class="head"><span class="title">' + (byMode ? esc(mode) : 'Сессия') + dur + '</span><i class="dot' + (s.connected ? '' : ' off') + '" title="' + (s.connected ? 'Данные из игры идут' : 'Нет данных из игры') + '"></i></div>')
+        out.push('<div class="head"><span class="title">' + (byMode ? esc(mode) : tr('session', 'Сессия')) + dur + '</span><i class="dot' + (s.connected ? '' : ' off') + '" title="' + (s.connected ? tr('dataOn', 'Данные из игры идут') : tr('dataOff', 'Нет данных из игры')) + '"></i></div>')
 
         var kills = num(src.kills), deaths = num(src.deaths)
         // K/D = kills while there are no deaths yet (same rule as the tracker's session K/D).
         var kd = (!byMode && sess.kd != null ? num(sess.kd) : (deaths ? kills / deaths : kills)).toFixed(2)
         out.push('<div class="stats">')
         if (rows.survival !== false) {
-          out.push(cell('', num(src.games), 'Игр'))
-          out.push(cell('good', num(src.survived), 'Выжили'))
-          out.push(cell('bad', num(src.lost), 'Не выжили'))
+          out.push(cell('', num(src.games), tr('games', 'Игр')))
+          out.push(cell('good', num(src.survived), tr('survived', 'Выжили')))
+          out.push(cell('bad', num(src.lost), tr('died', 'Не выжили')))
         }
         if (rows.combat !== false) {
           out.push(cell('kd', kd, 'K/D'))
-          out.push(cell('', kills, 'Убийств'))
-          out.push(cell('bad', deaths, 'Смертей'))
+          out.push(cell('', kills, tr('kills', 'Убийств')))
+          out.push(cell('bad', deaths, tr('deaths', 'Смертей')))
         }
         out.push('</div>')
 
@@ -803,7 +814,7 @@
 
         if (rows.current !== false && cur.inMatch) {
           var skulls = (cur.skulls || []).filter(function (t) { return t === 'kill' || t === 'death' })
-          out.push('<div class="match"><div class="match-head"><span>Текущая катка</span><b>' + esc(cur.map || '') + (cur.mode && !byMode ? ' · ' + esc(cur.mode) : '') + '</b></div><div class="skulls">')
+          out.push('<div class="match"><div class="match-head"><span>' + tr('current', 'Текущая катка') + '</span><b>' + esc(cur.map || '') + (cur.mode && !byMode ? ' · ' + esc(cur.mode) : '') + '</b></div><div class="skulls">')
           if (!skulls.length) {
             out.push('<span class="empty">-</span>')
           } else {
@@ -823,6 +834,7 @@
         ws.onmessage = function (ev) {
           var m
           try { m = JSON.parse(lanMedia(ev.data)) } catch (e) { return }
+          if (m.type === 'lang') { LANG = m.lang === 'en' ? 'en' : 'ru'; document.documentElement.lang = LANG; if (last) render(last); return }
           if (m.type === 'hunt_update') render(m.state)
         }
         ws.onclose = function () { setTimeout(connect, 2000) }

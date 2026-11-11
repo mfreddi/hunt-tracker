@@ -5,6 +5,9 @@
 // the streaming PC; the overlay server listens on the whole LAN).
 import { ref } from 'vue'
 import { lanUrl, useLanAddresses } from '../composables/useLanAddresses'
+import { useI18n } from '../i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   url: string
@@ -36,30 +39,27 @@ const toggleLan = (): void => {
   <div class="ol">
     <div v-if="props.label" class="ol-label">{{ props.label }}</div>
     <div class="ol-row">
-      <div class="ol-box" title="Нажми, чтобы скопировать" @click="copy(props.url)">
+      <div class="ol-box" :title="t('common.clickToCopy')" @click="copy(props.url)">
         <span class="ol-url">{{ props.url }}</span>
       </div>
       <Button
         size="small"
         severity="secondary"
         :icon="copied === props.url ? 'pi pi-check' : 'pi pi-copy'"
-        :label="copied === props.url ? 'Скопировано' : 'Копировать'"
+        :label="copied === props.url ? t('common.copied') : t('common.copy')"
         @click="copy(props.url)"
       />
       <slot />
     </div>
     <button v-if="!props.noLan" type="button" class="ol-lan-toggle" @click="toggleLan">
       <i :class="lanOpen ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"></i>
-      Стримишь с двух ПК?
+      {{ t('link.twoPc') }}
     </button>
     <div v-if="lanOpen && !props.noLan" class="ol-lan">
-      <p class="ol-hint">
-        Запусти Hunt Tracker на игровом ПК, а в OBS на стрим-ПК вставь ссылку с адресом этого
-        компьютера в сети. Если Windows спросит про брандмауэр — разреши доступ в частной сети.
-      </p>
-      <div v-if="addresses === null" class="ol-hint">Ищем адрес в сети…</div>
+      <p class="ol-hint">{{ t('link.twoPcHint') }}</p>
+      <div v-if="addresses === null" class="ol-hint">{{ t('link.searching') }}</div>
       <div v-else-if="!addresses.length" class="ol-hint">
-        Компьютер не подключён к локальной сети.
+        {{ t('link.noLan') }}
       </div>
       <template v-else>
         <div v-for="a in addresses" :key="a.ip" class="ol-row">
@@ -71,7 +71,7 @@ const toggleLan = (): void => {
             size="small"
             severity="secondary"
             :icon="copied === lanUrl(props.url, a.ip) ? 'pi pi-check' : 'pi pi-copy'"
-            :label="copied === lanUrl(props.url, a.ip) ? 'Скопировано' : 'Копировать'"
+            :label="copied === lanUrl(props.url, a.ip) ? t('common.copied') : t('common.copy')"
             @click="copy(lanUrl(props.url, a.ip))"
           />
         </div>

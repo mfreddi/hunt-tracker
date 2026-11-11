@@ -1,9 +1,16 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted } from 'vue'
+import { computed, onBeforeUnmount, onMounted } from 'vue'
 import { useStore } from 'vuex'
+import { LANGS, type Lang } from '@shared/i18n'
 import SettingHunt from './components/SettingHunt.vue'
+import { initI18n, useI18n } from './i18n'
 
 const store = useStore()
+const { t, lang, setLang } = useI18n()
+
+const langOptions = computed<{ value: Lang; label: string }[]>(() =>
+  LANGS.map((value) => ({ value, label: value === 'ru' ? 'Русский' : 'English' }))
+)
 
 let socket: WebSocket | null = null
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null
@@ -32,7 +39,10 @@ const connect = (): void => {
   }
 }
 
-onMounted(connect)
+onMounted(() => {
+  void initI18n()
+  connect()
+})
 
 onBeforeUnmount(() => {
   closed = true
@@ -44,8 +54,21 @@ onBeforeUnmount(() => {
 <template>
   <div class="app">
     <header class="app-header">
-      <h1 class="app-title">Hunt Tracker</h1>
-      <p class="app-subtitle">Трекер Hunt: Showdown и оверлей для OBS</p>
+      <div>
+        <h1 class="app-title">{{ t('app.title') }}</h1>
+        <p class="app-subtitle">{{ t('app.subtitle') }}</p>
+      </div>
+      <label class="app-lang">
+        <span class="app-lang-label">{{ t('app.language') }}</span>
+        <Select
+          size="small"
+          :model-value="lang"
+          :options="langOptions"
+          option-label="label"
+          option-value="value"
+          @update:model-value="setLang"
+        />
+      </label>
     </header>
     <main class="app-content">
       <SettingHunt />

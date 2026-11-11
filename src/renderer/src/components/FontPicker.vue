@@ -3,13 +3,15 @@
 // font. The list comes from the system after one click (see useSystemFonts); the picked name is stored
 // as plain text. OBS draws it with the fonts of the PC it runs on.
 import { computed } from 'vue'
+import { useI18n } from '../i18n'
 import { useSystemFonts } from '../composables/useSystemFonts'
 
 const props = defineProps<{ modelValue: string; label?: string; defaultLabel?: string }>()
 const emit = defineEmits<{ (e: 'update:modelValue', v: string): void }>()
+const { t } = useI18n()
 
 const { fonts, loaded, busy, failed, supported, load } = useSystemFonts()
-const defaultLabel = computed(() => props.defaultLabel || 'По умолчанию')
+const defaultLabel = computed(() => props.defaultLabel || t('common.default'))
 const options = computed(() => [
   { value: '', label: defaultLabel.value },
   ...fonts.value.map((f) => ({ value: f, label: f })),
@@ -44,7 +46,7 @@ const set = (v: unknown): void => emit('update:modelValue', typeof v === 'string
       </Select>
       <Button
         v-if="supported && !loaded"
-        label="Шрифты этого ПК"
+        :label="t('fonts.load')"
         icon="pi pi-download"
         size="small"
         severity="secondary"
@@ -54,15 +56,13 @@ const set = (v: unknown): void => emit('update:modelValue', typeof v === 'string
       />
     </div>
     <small v-if="failed" class="fp-hint">
-      Не удалось получить список шрифтов (нужно разрешение) — название можно вписать вручную.
+      {{ t('fonts.failed') }}
     </small>
     <small v-else-if="!supported" class="fp-hint">
-      Список шрифтов недоступен — впиши название шрифта вручную.
+      {{ t('fonts.unsupported') }}
     </small>
     <small class="fp-hint">
-      Шрифт берётся с ПК, где запущен OBS: если OBS на другом ПК, там такой шрифт должен стоять.
-      Только что установленный шрифт OBS увидит после полного перезапуска (обновления источника
-      мало), а приложение после перезапуска покажет его в списке.
+      {{ t('fonts.hint') }}
     </small>
   </div>
 </template>

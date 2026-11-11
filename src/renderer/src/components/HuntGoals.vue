@@ -5,21 +5,23 @@
 // mutated here, the screen always shows what main confirmed.
 import { computed, reactive } from 'vue'
 import { useStore } from 'vuex'
+import { useI18n } from '../i18n'
 
 const store = useStore()
+const { t } = useI18n()
 const goals = computed<any[]>(() => store.state.hunt?.goals || [])
 
 // Keep in sync with GOAL_LABELS / MAX_GOALS in the tracker's goals.ts.
 const MAX_GOALS = 5
-const metricOptions = [
-  { value: 'kills', label: 'Убийств за эфир' },
-  { value: 'survived', label: 'Выживаний за эфир' },
-  { value: 'games', label: 'Каток за эфир' },
-  { value: 'streak', label: 'Выживаний подряд' },
-  { value: 'bestKills', label: 'Убийств за одну катку' }
-]
+const metricOptions = computed(() => [
+  { value: 'kills', label: t('hunt.goals.metric.kills') },
+  { value: 'survived', label: t('hunt.goals.metric.survived') },
+  { value: 'games', label: t('hunt.goals.metric.games') },
+  { value: 'streak', label: t('hunt.goals.metric.streak') },
+  { value: 'bestKills', label: t('hunt.goals.metric.bestKills') }
+])
 const labelOf = (metric: string): string =>
-  metricOptions.find((o) => o.value === metric)?.label || metric
+  metricOptions.value.find((o) => o.value === metric)?.label || metric
 
 const send = (list: any[]): void =>
   window.electron.ipcRenderer.send('huntAction', { type: 'goals', value: list })
@@ -74,8 +76,7 @@ const draftTarget = (id: string, v: number | null): void => {
 <template>
   <div class="goals">
     <p class="g-hint">
-      Цели показываются отдельным виджетом в OBS (ссылка — в «Отдельные виджеты для OBS» выше).
-      Прогресс идёт за текущую сессию эфира и начинается заново с новой сессией.
+      {{ t('hunt.goals.hint') }}
     </p>
 
     <div v-for="g in goals" :key="g.id" class="g-card" :class="{ off: !g.enabled }">
@@ -115,14 +116,14 @@ const draftTarget = (id: string, v: number | null): void => {
           severity="secondary"
           text
           size="small"
-          aria-label="Удалить цель"
+          :aria-label="t('hunt.goals.remove')"
           @click="remove(g.id)"
         />
       </div>
       <InputText
         class="g-title"
         :model-value="titleDrafts[g.id] ?? g.title"
-        :placeholder="`Название (по умолчанию: ${labelOf(g.metric)})`"
+        :placeholder="t('hunt.goals.titlePlaceholder', { label: labelOf(g.metric) })"
         maxlength="40"
         @update:model-value="(v) => (titleDrafts[g.id] = String(v ?? ''))"
         @change="commitTitle(g.id)"
@@ -131,18 +132,18 @@ const draftTarget = (id: string, v: number | null): void => {
     </div>
 
     <p v-if="!goals.length" class="g-hint">
-      Целей пока нет. Например: «10 убийств за эфир» или «3 выживания подряд».
+      {{ t('hunt.goals.empty') }}
     </p>
     <Button
       size="small"
       severity="secondary"
       icon="pi pi-plus"
-      label="Добавить цель"
+      :label="t('hunt.goals.add')"
       :disabled="goals.length >= MAX_GOALS"
       @click="add"
     />
     <span v-if="goals.length >= MAX_GOALS" class="g-hint">
-      Больше {{ MAX_GOALS }} целей не нужно.</span
+      {{ t('hunt.goals.max', { max: MAX_GOALS }) }}</span
     >
   </div>
 </template>

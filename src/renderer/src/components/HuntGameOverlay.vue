@@ -4,6 +4,8 @@
 // block only toggles it and picks which view it draws (position, scale, opacity and theme
 // come from "Вид оверлея", so the window repeats the OBS look).
 import { onMounted, onUnmounted, ref } from 'vue'
+import { computed } from 'vue'
+import { useI18n } from '../i18n'
 
 interface OverlayWindowState {
   open: boolean
@@ -13,6 +15,7 @@ interface OverlayWindowState {
 }
 
 const state = ref<OverlayWindowState | null>(null)
+const { t } = useI18n()
 
 const load = async (): Promise<void> => {
   try {
@@ -23,12 +26,12 @@ const load = async (): Promise<void> => {
 }
 const act = (payload: any): void => window.electron.ipcRenderer.send('overlayWindowAction', payload)
 
-const sourceOptions = [
-  { value: 'panel', label: 'Вся панель' },
-  { value: 'recent', label: 'Последние катки, серия и рекорд' },
-  { value: 'goal', label: 'Челлендж-цели' },
-  { value: 'maps', label: 'Винрейт по картам' }
-]
+const sourceOptions = computed(() => [
+  { value: 'panel', label: t('hunt.gov.source.panel') },
+  { value: 'recent', label: t('hunt.gov.source.recent') },
+  { value: 'goal', label: t('hunt.gov.source.goal') },
+  { value: 'maps', label: t('hunt.gov.source.maps') }
+])
 
 // The main process pushes the state on every open/close/source change and on hotkey presses.
 let listener: ((e: unknown, s: OverlayWindowState) => void) | null = null
@@ -46,19 +49,16 @@ onUnmounted(() => {
 
 <template>
   <div class="gov">
-    <p class="gov-hint">
-      Панель можно показывать прямо поверх игры, без OBS. Это прозрачное окно поверх всех окон:
-      клики и управление остаются у игры, а в саму игру ничего не внедряется.
-    </p>
+    <p class="gov-hint">{{ t('hunt.gov.hint') }}</p>
     <div class="gov-row">
       <ToggleSwitch
         :model-value="!!state?.open"
         @update:model-value="(v) => act({ type: v ? 'open' : 'close' })"
       />
-      <span class="gov-label">Показывать поверх игры</span>
+      <span class="gov-label">{{ t('hunt.gov.showOverGame') }}</span>
     </div>
     <label class="gov-field">
-      <span>Что показывать в окне</span>
+      <span>{{ t('hunt.gov.whatToShow') }}</span>
       <Select
         :model-value="state?.source || 'panel'"
         :options="sourceOptions"
@@ -68,12 +68,11 @@ onUnmounted(() => {
       />
     </label>
     <p class="gov-hint">
-      Горячая клавиша <b>{{ state?.hotkey || 'Alt+Shift+O' }}</b> включает и выключает окно прямо во
-      время игры. Настройки «Вид оверлея» (позиция, масштаб, прозрачность, тема) действуют и здесь.
+      {{ t('hunt.gov.hotkeyHintBefore') }} <b>{{ state?.hotkey || 'Alt+Shift+O' }}</b>
+      {{ t('hunt.gov.hotkeyHintAfter') }}
     </p>
     <div class="gov-warn">
-      <b>Важно:</b> в настройках графики игры выбери «Оконный» или «Оконный без рамки» режим. В
-      полноэкранном (exclusive) режиме окно поверх игры не видно.
+      <b>{{ t('hunt.gov.warnTitle') }}</b> {{ t('hunt.gov.warnBody') }}
     </div>
   </div>
 </template>

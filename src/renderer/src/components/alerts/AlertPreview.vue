@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useI18n } from '../../i18n'
 
 // A live preview of the alert being edited: the real overlay page (`/alerts?preview`) shown at 1080p and scaled down, fed
 // with what the main process would send for the variant as it is in the form right now. The page does not connect to the
@@ -12,6 +13,7 @@ const props = withDefaults(defineProps<{ variant: unknown; big?: boolean; channe
 const emit = defineEmits<{ toggleBig: [] }>()
 const PREVIEW_URL = 'http://localhost:1040/alerts?preview=1'
 const ipc = window.electron.ipcRenderer
+const { t } = useI18n()
 
 const wrap = ref<HTMLElement | null>(null)
 const frame = ref<HTMLIFrameElement | null>(null)
@@ -58,10 +60,10 @@ onBeforeUnmount(() => {
 <template>
   <div class="ap">
     <div class="ap-bar">
-      <span class="font-semibold">Предпросмотр</span>
+      <span class="font-semibold">{{ t('alerts.preview.title') }}</span>
       <div class="ap-btns">
         <Button
-          :label="light ? 'Фон: светлый' : 'Фон: тёмный'"
+          :label="light ? t('alerts.preview.bgLight') : t('alerts.preview.bgDark')"
           size="small"
           text
           severity="secondary"
@@ -69,7 +71,7 @@ onBeforeUnmount(() => {
         />
         <Button
           v-if="big !== undefined"
-          :label="big ? 'Мельче' : 'Крупнее'"
+          :label="big ? t('alerts.preview.smaller') : t('alerts.preview.bigger')"
           size="small"
           text
           severity="secondary"
@@ -84,14 +86,11 @@ onBeforeUnmount(() => {
         class="ap-frame"
         :style="{ transform: `scale(${scale})` }"
         tabindex="-1"
-        title="Предпросмотр алерта"
+        :title="t('alerts.preview.frameTitle')"
         @load="send"
       ></iframe>
     </div>
-    <small class="ap-hint">
-      Так алерт выглядит на экране 1920x1080. Появление и исчезновение не показываются: для этого
-      есть кнопка «Тест».
-    </small>
+    <small class="ap-hint">{{ t('alerts.preview.hint') }}</small>
   </div>
 </template>
 

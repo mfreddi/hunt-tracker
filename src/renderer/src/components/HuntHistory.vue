@@ -5,9 +5,11 @@
 import { computed, onMounted, ref } from 'vue'
 import { useStore } from 'vuex'
 import { useToast } from 'primevue/usetoast'
+import { useI18n } from '../i18n'
 
 const store = useStore()
 const toast = useToast()
+const { t, lang } = useI18n()
 const all = computed<any[]>(() => store.state.huntHistory || [])
 
 onMounted(async () => {
@@ -27,20 +29,20 @@ const map = ref<string>('')
 const period = ref<string>('all')
 const shown = ref(PAGE)
 
-const periods = [
-  { value: 'all', label: 'За всё время' },
-  { value: 'today', label: 'Сегодня' },
-  { value: '7', label: '7 дней' },
-  { value: '30', label: '30 дней' }
-]
+const periods = computed(() => [
+  { value: 'all', label: t('hunt.history.period.all') },
+  { value: 'today', label: t('hunt.history.period.today') },
+  { value: '7', label: t('hunt.history.period.7') },
+  { value: '30', label: t('hunt.history.period.30') }
+])
 const optionsOf = (key: 'mode' | 'mapName', allLabel: string): any[] => [
   { value: '', label: allLabel },
   ...[...new Set(all.value.map((m) => m[key]).filter(Boolean))]
     .sort()
     .map((v) => ({ value: v, label: v }))
 ]
-const modes = computed(() => optionsOf('mode', 'Все режимы'))
-const maps = computed(() => optionsOf('mapName', 'Все карты'))
+const modes = computed(() => optionsOf('mode', t('hunt.history.allModes')))
+const maps = computed(() => optionsOf('mapName', t('hunt.history.allMaps')))
 
 const since = (): number => {
   if (period.value === 'today') return new Date().setHours(0, 0, 0, 0)
@@ -92,16 +94,16 @@ const byMap = computed(() => {
 })
 
 const when = (ts: number): string =>
-  new Date(ts).toLocaleString('ru-RU', {
+  new Date(ts).toLocaleString(lang.value === 'ru' ? 'ru-RU' : 'en-US', {
     day: '2-digit',
     month: '2-digit',
     hour: '2-digit',
     minute: '2-digit'
   })
 const minutes = (m: any): string =>
-  m.startedAt ? Math.max(1, Math.round((m.endedAt - m.startedAt) / 60000)) + ' мин' : ''
+  m.startedAt ? t('hunt.history.minutes', { n: Math.max(1, Math.round((m.endedAt - m.startedAt) / 60000)) }) : ''
 const outcomeText = (o: string): string =>
-  o === 'survived' ? 'выжил' : o === 'lost' ? 'не выжил' : '-'
+  o === 'survived' ? t('hunt.history.outcome.survived') : o === 'lost' ? t('hunt.history.outcome.lost') : '-'
 
 const csvEscape = (v: any): string => {
   const s = String(v ?? '')
@@ -109,13 +111,13 @@ const csvEscape = (v: any): string => {
 }
 const exportCsv = async (): Promise<void> => {
   const lines = [
-    ['Начало', 'Конец', 'Режим', 'Карта', 'Итог', 'Убийства', 'Смерти', 'Размены'].join(';')
+    t('hunt.history.csvHeader')
   ]
   for (const m of filtered.value) {
     lines.push(
       [
-        m.startedAt ? new Date(m.startedAt).toLocaleString('ru-RU') : '',
-        new Date(m.endedAt).toLocaleString('ru-RU'),
+        m.startedAt ? new Date(m.startedAt).toLocaleString(lang.value === 'ru' ? 'ru-RU' : 'en-US') : '',
+        new Date(m.endedAt).toLocaleString(lang.value === 'ru' ? 'ru-RU' : 'en-US'),
         m.mode,
         m.mapName,
         outcomeText(m.outcome),
@@ -133,14 +135,14 @@ const exportCsv = async (): Promise<void> => {
   })
   if (resp?.error) store.commit('setError', resp)
   else if (resp?.filePath)
-    toast.add({ severity: 'success', summary: 'CSV сохранён', detail: resp.filePath, life: 6000 })
+    toast.add({ severity: 'success', summary: t('hunt.history.csvSaved'), detail: resp.filePath, life: 6000 })
 }
 </script>
 
 <template>
   <div class="hh">
     <p v-if="!all.length" class="hh-hint">
-      Пока пусто. Каждая сыгранная катка будет появляться здесь сама.
+      {{ t('hunt.history.empty') }}
     </p>
     <template v-else>
       <div class="hh-filters">
@@ -150,25 +152,25 @@ const exportCsv = async (): Promise<void> => {
       </div>
       <div class="hh-totals">
         <span
-          >Игр <b>{{ totals.games }}</b></span
+          >{{ t('hunt.history.gamesLabel') }} <b>{{ totals.games }}</b></span
         >
         <span
-          >Выжили <b class="green">{{ totals.survived }}</b> ({{ pct(totals) }})</span
+          >{{ t('hunt.history.survivedLabel') }} <b class="green">{{ totals.survived }}</b> ({{ pct(totals) }})</span
         >
         <span
-          >Не выжили <b class="red">{{ totals.lost }}</b></span
+          >{{ t('hunt.history.lostLabel') }} <b class="red">{{ totals.lost }}</b></span
         >
         <span
           >K/D <b>{{ totals.kills }}/{{ totals.deaths }}</b> ({{ kd(totals) }})</span
         >
       </div>
       <details v-if="byMap.length > 1" class="hh-maps">
-        <summary>По картам</summary>
+        <summary>{{ t('hunt.history.byMaps') }}</summary>
         <div v-for="g in byMap" :key="g.name" class="hh-maprow">
           <span>{{ g.name }}</span>
-          <span>{{ g.t.games }} игр</span>
-          <span>выжили {{ pct(g.t) }}</span>
-          <span>K/D {{ kd(g.t) }}</span>
+          <span>{{ t('hunt.history.gamesCount', { n: g.t.games }) }}</span>
+          <span>{{ t('hunt.history.survivedPct', { pct: pct(g.t) }) }}</span>
+          <span>{{ t('hunt.history.kdValue', { kd: kd(g.t) }) }}</span>
         </div>
       </details>
       <div class="hh-list">
@@ -181,18 +183,18 @@ const exportCsv = async (): Promise<void> => {
           </span>
           <span
             >{{ m.kills }}/{{ m.deaths
-            }}<template v-if="m.trades"> · размен {{ m.trades }}</template></span
+            }}<template v-if="m.trades">{{ t('hunt.history.tradeShort', { n: m.trades }) }}</template></span
           >
           <span class="hh-dim">{{ minutes(m) }}</span>
         </div>
-        <p v-if="!filtered.length" class="hh-hint">Под эти фильтры каток нет.</p>
+        <p v-if="!filtered.length" class="hh-hint">{{ t('hunt.history.noMatches') }}</p>
       </div>
       <div class="hh-actions">
         <Button
           v-if="filtered.length > shown"
           size="small"
           severity="secondary"
-          :label="`Показать ещё (${filtered.length - shown})`"
+          :label="t('hunt.history.showMore', { n: filtered.length - shown })"
           @click="shown += PAGE"
         />
         <Button

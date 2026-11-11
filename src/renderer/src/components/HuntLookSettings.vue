@@ -4,41 +4,44 @@
 import { computed } from 'vue'
 import { useStore } from 'vuex'
 import { usePositionSelector } from '../composables/usePositionSelector'
+import { useI18n } from '../i18n'
+import type { MessageKey } from '@shared/i18n'
 
 const store = useStore()
 const s = computed<any>(() => store.state.hunt || null)
+const { t } = useI18n()
 const send = (payload: any): void => window.electron.ipcRenderer.send('huntAction', payload)
 const patch = (values: any): void => send({ type: 'patch', values })
 const { positions } = usePositionSelector()
 
-const rowLabels: Record<string, string> = {
-  duration: 'Время в игре',
-  survival: 'Выживание (вышли/не вышли)',
-  combat: 'Боевая статистика (K/D)',
-  modes: 'Сводка по режимам (когда показана вся сессия)',
-  current: 'Текущая катка',
-  recent: 'Последние катки, серия и рекорд'
+const rowLabels: Record<string, MessageKey> = {
+  duration: 'look.row.duration',
+  survival: 'look.row.survival',
+  combat: 'look.row.combat',
+  modes: 'look.row.modes',
+  current: 'look.row.current',
+  recent: 'look.row.recent'
 }
 const setRow = (key: string, v: boolean): void =>
   patch({ rows: { ...(s.value?.look?.rows || {}), [key]: v } })
 
-const themeOptions = [
-  { value: 'classic', label: 'Классика' },
-  { value: 'slate', label: 'Камень' },
-  { value: 'wood', label: 'Дерево' },
-  { value: 'blood', label: 'Кровь — кровавый ивент' }
-]
+const themeOptions = computed(() => [
+  { value: 'classic', label: t('look.theme.classic') },
+  { value: 'slate', label: t('look.theme.slate') },
+  { value: 'wood', label: t('look.theme.wood') },
+  { value: 'blood', label: t('look.theme.blood') }
+])
 
-const scopeOptions = [
-  { value: 'mode', label: 'Статистика текущего режима' },
-  { value: 'session', label: 'За всю сессию (все режимы)' }
-]
+const scopeOptions = computed(() => [
+  { value: 'mode', label: t('look.scope.mode') },
+  { value: 'session', label: t('look.scope.session') }
+])
 </script>
 
 <template>
   <div v-if="s">
     <label class="hunt-field">
-      <span>Тема</span>
+      <span>{{ t('look.theme') }}</span>
       <Select
         :model-value="s.look.theme || 'classic'"
         :options="themeOptions"
@@ -48,11 +51,11 @@ const scopeOptions = [
       />
     </label>
     <p v-if="s.look.theme && s.look.theme !== 'classic'" class="hunt-hint">
-      У темы свои цвета — настройки цвета ниже действуют только для «Классики».
+      {{ t('look.themeHint') }}
     </p>
     <div class="hunt-row">
       <label class="hunt-field">
-        <span>Позиция</span>
+        <span>{{ t('look.position') }}</span>
         <Select
           :model-value="s.look.position"
           :options="positions"
@@ -62,7 +65,7 @@ const scopeOptions = [
         />
       </label>
       <label class="hunt-field" style="max-width: 12rem">
-        <span>Масштаб</span>
+        <span>{{ t('look.scale') }}</span>
         <Slider
           :model-value="s.look.scale"
           :min="0.6"
@@ -72,7 +75,7 @@ const scopeOptions = [
         />
       </label>
       <label class="hunt-field" style="max-width: 12rem">
-        <span>Фон: {{ Math.round((s.look.bgOpacity ?? 1) * 100) }}%</span>
+        <span>{{ t('look.bgOpacity', { pct: Math.round((s.look.bgOpacity ?? 1) * 100) }) }}</span>
         <Slider
           :model-value="s.look.bgOpacity ?? 1"
           :min="0"
@@ -84,21 +87,21 @@ const scopeOptions = [
     </div>
     <div v-if="(s.theme || 'classic') === 'classic'" class="hunt-row">
       <label class="hunt-color"
-        ><span>Фон</span
+        ><span>{{ t('look.bg') }}</span
         ><input
           type="color"
           :value="(s.look.bg || '#0a0a0f').slice(0, 7)"
           @input="(e) => patch({ bg: (e.target as HTMLInputElement).value })"
       /></label>
       <label class="hunt-color"
-        ><span>Текст</span
+        ><span>{{ t('look.text') }}</span
         ><input
           type="color"
           :value="s.look.text"
           @input="(e) => patch({ text: (e.target as HTMLInputElement).value })"
       /></label>
       <label class="hunt-color"
-        ><span>Акцент</span
+        ><span>{{ t('look.accent') }}</span
         ><input
           type="color"
           :value="s.look.accent"
@@ -106,7 +109,7 @@ const scopeOptions = [
       /></label>
     </div>
     <label class="hunt-field">
-      <span>Что показывать</span>
+      <span>{{ t('look.whatToShow') }}</span>
       <Select
         :model-value="s.look.scope || 'mode'"
         :options="scopeOptions"
@@ -116,8 +119,7 @@ const scopeOptions = [
       />
     </label>
     <p class="hunt-hint">
-      Статистика текущего режима переключается сама: показывается режим, в котором идёт катка, а
-      между катками - выбранный в лобби (или последний сыгранный).
+      {{ t('look.scopeHint') }}
     </p>
     <div class="hunt-rows">
       <label v-for="(lbl, key) in rowLabels" :key="key" class="hunt-check">
@@ -125,7 +127,7 @@ const scopeOptions = [
           :model-value="s.look.rows[key] !== false"
           @update:model-value="(v) => setRow(key, v)"
         />
-        <span>{{ lbl }}</span>
+        <span>{{ t(lbl) }}</span>
       </label>
     </div>
   </div>

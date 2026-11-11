@@ -1,13 +1,15 @@
-// Choices for the Hunt overlay settings (labels are Russian, ids are the ones main understands).
+// Choices for the Hunt overlay settings (labels are translated by the caller, ids are the ones main understands).
 
-export const POSITION_OPTIONS = [
-  { value: 'tl', label: 'сверху слева' },
-  { value: 'tc', label: 'сверху' },
-  { value: 'tr', label: 'сверху справа' },
-  { value: 'ml', label: 'по центру слева' },
-  { value: 'mc', label: 'по центру' },
-  { value: 'mr', label: 'по центру справа' },
-  { value: 'bl', label: 'снизу слева' },
-  { value: 'bc', label: 'снизу' },
-  { value: 'br', label: 'снизу справа' }
+import type { MessageKey } from '@shared/i18n'
+
+export const POSITION_OPTIONS: Array<{ value: string; key: MessageKey }> = [
+  { value: 'tl', key: 'apos.tl' },
+  { value: 'tc', key: 'apos.tc' },
+  { value: 'tr', key: 'apos.tr' },
+  { value: 'ml', key: 'apos.ml' },
+  { value: 'mc', key: 'apos.mc' },
+  { value: 'mr', key: 'apos.mr' },
+  { value: 'bl', key: 'apos.bl' },
+  { value: 'bc', key: 'apos.bc' },
+  { value: 'br', key: 'apos.br' }
 ]
