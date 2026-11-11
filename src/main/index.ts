@@ -58,6 +58,7 @@ const OVERLAY_SOURCES: OverlaySource[] = ['panel', 'recent', 'goal', 'maps']
 const OVERLAY_HOTKEY = 'Alt+Shift+O'
 
 let overlayWindow: BrowserWindow | null = null
+let overlayTopmostTimer: ReturnType<typeof setInterval> | null = null
 
 interface OverlaySettings {
   // Reopen over the game on the next launch.
@@ -120,6 +121,15 @@ function createOverlayWindow(): void {
   // Above the game (and most other windows) without stealing clicks.
   overlayWindow.setAlwaysOnTop(true, 'screen-saver')
   overlayWindow.setIgnoreMouseEvents(true, { forward: true })
+  // Some games raise their own topmost window after Alt+Tab. Reassert the overlay's
+  // z-order without focusing it so it returns above the game automatically.
+  if (process.platform === 'win32') {
+    overlayTopmostTimer = setInterval(() => {
+      if (overlayWindow && !overlayWindow.isDestroyed() && overlayWindow.isVisible()) {
+        overlayWindow.moveTop()
+      }
+    }, 1000)
+  }
   overlayWindow.webContents.setWindowOpenHandler((d) => {
     shell.openExternal(d.url)
     return { action: 'deny' }
@@ -133,6 +143,8 @@ function createOverlayWindow(): void {
   })
   overlayWindow.once('ready-to-show', () => overlayWindow?.showInactive())
   overlayWindow.on('closed', () => {
+    if (overlayTopmostTimer) clearInterval(overlayTopmostTimer)
+    overlayTopmostTimer = null
     overlayWindow = null
     notifyOverlayWindow()
   })
@@ -371,6 +383,8 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   globalShortcut.unregisterAll()
+  if (overlayTopmostTimer) clearInterval(overlayTopmostTimer)
+  overlayTopmostTimer = null
   overlayWindow?.destroy()
   hunt.dispose()
   server?.http.close()
